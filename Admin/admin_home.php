@@ -228,14 +228,16 @@ $page_file = "admin_" . $page . ".php";
 
     .sidebar-content a:hover {
       background: rgba(245, 158, 11, 0.12);
-      color: white;
+      /* Fix: Set hover text color to white for readability */
+      color: white; 
       transform: translateX(8px);
       box-shadow: 0 6px 20px rgba(245, 158, 11, 0.15);
     }
 
     .sidebar-content a.active {
-      background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(217, 119, 6, 0.15) 100%);
-      color: white;
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      /* Fix: Change active text color to white for visibility */
+      color: white; 
       box-shadow: 0 8px 25px rgba(245, 158, 11, 0.2);
       border: 1px solid rgba(245, 158, 11, 0.3);
     }
@@ -270,7 +272,7 @@ $page_file = "admin_" . $page . ".php";
     }
 
     .sidebar-content a.active .menu-icon {
-      color: #f59e0b;
+      color: white; /* Fix: Set active icon color to white */
     }
 
     /* Main Content Wrapper */
@@ -546,20 +548,16 @@ $page_file = "admin_" . $page . ".php";
   </style>
 </head>
 <body>
-  <!-- Mobile Toggle Button -->
   <button class="mobile-toggle" onclick="toggleMobileSidebar()">
     <i class="fas fa-bars"></i>
   </button>
 
-  <!-- Mobile Overlay -->
   <div class="mobile-overlay" id="mobileOverlay" onclick="closeMobileSidebar()"></div>
 
-  <!-- Loading Overlay -->
   <div class="loading-overlay" id="loadingOverlay">
     <div class="loading-spinner"></div>
   </div>
 
-  <!-- Sidebar -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
       <div class="sidebar-brand">
@@ -671,9 +669,7 @@ $page_file = "admin_" . $page . ".php";
     </div>
   </aside>
 
-  <!-- Main Content -->
   <div class="main-wrapper">
-    <!-- Top Bar -->
     <div class="topbar">
       <div class="topbar-left">
         <div class="page-title">

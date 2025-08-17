@@ -4,7 +4,7 @@ require_once '../dbPC.php';
 
 // Verify doctor authentication
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'doctor') {
-    header("Location: login.php");
+    header("Location: ../loginPC.html");
     exit;
 }
 
@@ -26,10 +26,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_prescription']
     $suggested_diet = trim($_POST['suggested_diet'] ?? '');
     $medical_tests = trim($_POST['medical_tests'] ?? '');
 
+    // Check if at least one prescription field has content
+    $has_content = !empty($prescribed_medicines) || !empty($suggested_habits) || !empty($suggested_supplements) || !empty($suggested_diet) || !empty($medical_tests);
+
     // Validation
     if (!$appointment_id || !$patient_id || !$doctor_id || empty($patient_name) || empty($doctor_name)) {
         $error = "All required appointment fields must be filled out.";
-    } elseif (empty($prescribed_medicines) && empty($suggested_habits) && empty($suggested_supplements) && empty($suggested_diet) && empty($medical_tests)) {
+    } elseif (!$has_content) {
         $error = "At least one prescription field (medicines, habits, supplements, diet, or tests) must be filled out.";
     } else {
         try {
@@ -40,69 +43,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_prescription']
             if (!$verify_stmt->fetch()) {
                 $error = "Invalid appointment or you don't have permission to prescribe for this appointment.";
             } else {
-                // Prepare a single comprehensive instruction string
-                $comprehensive_instructions = "Suggested Habits/Activities: " . ($suggested_habits ?: "None specified") . "\n"
-                                            . "Suggested Supplements: " . ($suggested_supplements ?: "None specified") . "\n"
-                                            . "Suggested Diet: " . ($suggested_diet ?: "None specified");
+                // Begin a transaction for safe, multi-table insertion
+                $conn->beginTransaction();
 
-                // Prepare a single string for medical tests
-                $medical_tests_string = $medical_tests ?: "None specified";
+                // 1. Insert into the main prescriptions table and get the new ID
+                $stmt = $conn->prepare("INSERT INTO prescriptions (appointment_id) VALUES (?)");
+                $stmt->execute([$appointment_id]);
+                $prescription_id = $conn->lastInsertId();
 
-                // Split the medicines string into individual lines
-                $medicine_lines = explode("\n", $prescribed_medicines);
-                $is_any_medicine_inserted = false;
+                // 2. Insert prescribed medicines
+                if (!empty($prescribed_medicines)) {
+                    $medicine_lines = explode("\n", $prescribed_medicines);
+                    foreach ($medicine_lines as $line) {
+                        $line = trim($line);
+                        if (!empty($line)) {
+                            $parts = explode(',', $line);
+                            $medicine_name = trim($parts[0] ?? '');
+                            $dosage = trim($parts[1] ?? 'N/A');
+                            $frequency = trim($parts[2] ?? 'N/A');
+                            $duration = trim($parts[3] ?? 'N/A');
 
-                foreach ($medicine_lines as $line) {
-                    $line = trim($line);
-                    if (!empty($line)) {
-                        // Assuming the format: [Medicine Name], [Dosage], [Frequency], [Duration]
-                        // Simple example: "Paracetamol 500mg, 1 tablet, 3 times a day, 7 days"
-                        // This is a simple parsing method, you may need a more robust one
-                        $parts = explode(',', $line);
-                        $medicine_name = trim($parts[0] ?? '');
-                        $dosage = trim($parts[1] ?? 'N/A');
-                        $frequency = trim($parts[2] ?? 'N/A');
-                        $duration = trim($parts[3] ?? 'N/A');
-
-                        // Insert into prescriptions table
-                        $stmt = $conn->prepare("INSERT INTO prescriptions (appointment_id, medicine_name, dosage, frequency, duration, instructions, medical_tests) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                        
-                        $stmt->execute([
-                            $appointment_id,
-                            $medicine_name,
-                            $dosage,
-                            $frequency,
-                            $duration,
-                            $comprehensive_instructions,
-                            $medical_tests_string
-                        ]);
-                        $is_any_medicine_inserted = true;
+                            $med_stmt = $conn->prepare("INSERT INTO prescription_medicines (prescription_id, medicine_name, dosage, frequency, duration) VALUES (?, ?, ?, ?, ?)");
+                            $med_stmt->execute([$prescription_id, $medicine_name, $dosage, $frequency, $duration]);
+                        }
                     }
                 }
                 
-                // If no medicines were provided, insert a single row with other instructions
-                if (!$is_any_medicine_inserted) {
-                    $stmt = $conn->prepare("INSERT INTO prescriptions (appointment_id, medicine_name, dosage, frequency, duration, instructions, medical_tests) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                    $stmt->execute([
-                        $appointment_id,
-                        'N/A',
-                        'N/A',
-                        'N/A',
-                        'N/A',
-                        $comprehensive_instructions,
-                        $medical_tests_string
-                    ]);
+                // 3. Insert into other tables if data exists
+                if (!empty($suggested_habits)) {
+                    $habits_stmt = $conn->prepare("INSERT INTO prescription_habits (prescription_id, habit) VALUES (?, ?)");
+                    $habits_stmt->execute([$prescription_id, $suggested_habits]);
+                }
+                
+                if (!empty($suggested_supplements)) {
+                    $supplements_stmt = $conn->prepare("INSERT INTO prescription_supplements (prescription_id, supplement) VALUES (?, ?)");
+                    $supplements_stmt->execute([$prescription_id, $suggested_supplements]);
                 }
 
-                // Update appointment status to 'prescribed'
+                if (!empty($suggested_diet)) {
+                    $diet_stmt = $conn->prepare("INSERT INTO prescription_diet (prescription_id, diet) VALUES (?, ?)");
+                    $diet_stmt->execute([$prescription_id, $suggested_diet]);
+                }
+
+                if (!empty($medical_tests)) {
+                    $tests_stmt = $conn->prepare("INSERT INTO prescription_medical_tests (prescription_id, medical_test) VALUES (?, ?)");
+                    $tests_stmt->execute([$prescription_id, $medical_tests]);
+                }
+                
+                // 4. Update appointment status to 'prescribed'
                 $update_stmt = $conn->prepare("UPDATE appointments SET appointment_status = 'prescribed' WHERE id = ?");
                 $update_stmt->execute([$appointment_id]);
 
-                // Redirect to avoid form re-submission
-                header("Location: doctor_prescribe.php?success=true");
+                // Commit the transaction
+                $conn->commit();
+                
+                // Correct redirect to stay within the doctor_home.php panel
+                header("Location: doctor_home.php?page=prescribe&success=true");
                 exit;
             }
         } catch (PDOException $e) {
+            $conn->rollBack();
             $error = "Database error: " . $e->getMessage();
         }
     }

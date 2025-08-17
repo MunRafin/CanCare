@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost
--- Generation Time: Aug 10, 2025 at 08:44 AM
+-- Generation Time: Aug 17, 2025 at 06:36 PM
 -- Server version: 10.4.28-MariaDB
 -- PHP Version: 8.2.4
 
@@ -18,7 +18,7 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
--- Database: `persocare`
+-- Database: `cancare`
 --
 
 -- --------------------------------------------------------
@@ -34,7 +34,7 @@ CREATE TABLE `appointments` (
   `appointment_date` date NOT NULL,
   `appointment_time` time NOT NULL,
   `symptoms` text DEFAULT NULL,
-  `appointment_status` enum('made','accepted','done') DEFAULT 'made',
+  `appointment_status` enum('made','accepted','rejected','prescribed') DEFAULT 'made',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -43,8 +43,12 @@ CREATE TABLE `appointments` (
 --
 
 INSERT INTO `appointments` (`id`, `patient_id`, `doctor_id`, `appointment_date`, `appointment_time`, `symptoms`, `appointment_status`, `created_at`) VALUES
-(1, 1, 5, '2025-10-10', '10:00:00', 'Heart Burn', 'made', '2025-07-23 02:34:25'),
-(2, 1, 6, '2025-10-10', '11:00:00', 'Low Testasterone', 'made', '2025-07-23 02:35:08');
+(5, 1, 7, '2025-08-17', '09:00:00', 'Headache', 'prescribed', '2025-08-17 09:35:35'),
+(6, 1, 5, '2025-08-21', '09:00:00', 'Ache', 'made', '2025-08-17 09:41:30'),
+(7, 1, 7, '2025-08-20', '09:00:00', 'Haha', 'made', '2025-08-17 11:28:11'),
+(8, 1, 7, '2025-08-22', '09:00:00', 'Haha', 'prescribed', '2025-08-17 11:29:52'),
+(9, 1, 7, '2025-08-19', '10:00:00', 'haha', 'prescribed', '2025-08-17 11:30:07'),
+(10, 1, 7, '2025-08-18', '08:00:00', 'hihi', 'prescribed', '2025-08-17 11:30:54');
 
 -- --------------------------------------------------------
 
@@ -98,7 +102,6 @@ CREATE TABLE `doctors` (
 
 INSERT INTO `doctors` (`id`, `user_id`, `specialization`, `qualification`, `experience_years`, `bio`, `profile_image`, `service_days`, `service_time`) VALUES
 (6, 5, 'Cardiologist', 'MBBS, FCPS (Cardiology)', 10, 'Experienced cardiologist specializing in heart diseases.', 'mahin.png', 'Sun, Tue, Thu', '09:00 AM - 12:00 PM'),
-(7, 6, 'Endocrinologist', 'MBBS, MD (Endocrinology)', 8, 'Specialist in diabetes and hormonal disorders.', 'tanvir.png', 'Mon, Wed, Fri', '10:00 AM - 01:00 PM'),
 (8, 7, 'Gynecologist', 'MBBS, MS (Gynecology)', 7, 'Providing care for women\'s reproductive health.', 'farzana.png', 'Mon to Fri', '08:00 AM - 11:00 AM'),
 (9, 8, 'Orthopedic Surgeon', 'MBBS, MS (Orthopedics)', 9, 'Expert in bone and joint surgeries.', 'nayema.png', 'Sat, Tue, Thu', '02:00 PM - 05:00 PM');
 
@@ -495,14 +498,113 @@ CREATE TABLE `patients` (
 CREATE TABLE `prescriptions` (
   `id` int(11) NOT NULL,
   `appointment_id` int(11) NOT NULL,
-  `medicine_name` varchar(100) NOT NULL,
-  `dosage` varchar(50) NOT NULL,
-  `frequency` varchar(50) NOT NULL COMMENT 'e.g., twice daily, once weekly',
-  `duration` varchar(50) NOT NULL COMMENT 'e.g., 7 days, 2 weeks',
-  `instructions` text DEFAULT NULL COMMENT 'Special instructions',
-  `medical_tests` varchar(255) DEFAULT NULL,
   `prescribed_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `prescriptions`
+--
+
+INSERT INTO `prescriptions` (`id`, `appointment_id`, `prescribed_at`) VALUES
+(1, 8, '2025-08-17 14:22:13');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `prescription_diet`
+--
+
+CREATE TABLE `prescription_diet` (
+  `id` int(11) NOT NULL,
+  `prescription_id` int(11) NOT NULL,
+  `diet` text NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `prescription_diet`
+--
+
+INSERT INTO `prescription_diet` (`id`, `prescription_id`, `diet`) VALUES
+(1, 1, 'na');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `prescription_habits`
+--
+
+CREATE TABLE `prescription_habits` (
+  `id` int(11) NOT NULL,
+  `prescription_id` int(11) NOT NULL,
+  `habit` text NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `prescription_habits`
+--
+
+INSERT INTO `prescription_habits` (`id`, `prescription_id`, `habit`) VALUES
+(1, 1, 'na');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `prescription_medical_tests`
+--
+
+CREATE TABLE `prescription_medical_tests` (
+  `id` int(11) NOT NULL,
+  `prescription_id` int(11) NOT NULL,
+  `medical_test` text NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `prescription_medical_tests`
+--
+
+INSERT INTO `prescription_medical_tests` (`id`, `prescription_id`, `medical_test`) VALUES
+(1, 1, 'na');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `prescription_medicines`
+--
+
+CREATE TABLE `prescription_medicines` (
+  `id` int(11) NOT NULL,
+  `prescription_id` int(11) NOT NULL,
+  `medicine_name` varchar(100) NOT NULL,
+  `dosage` varchar(50) DEFAULT NULL,
+  `frequency` varchar(50) DEFAULT NULL,
+  `duration` varchar(50) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `prescription_medicines`
+--
+
+INSERT INTO `prescription_medicines` (`id`, `prescription_id`, `medicine_name`, `dosage`, `frequency`, `duration`) VALUES
+(1, 1, 'na', 'N/A', 'N/A', 'N/A');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `prescription_supplements`
+--
+
+CREATE TABLE `prescription_supplements` (
+  `id` int(11) NOT NULL,
+  `prescription_id` int(11) NOT NULL,
+  `supplement` text NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `prescription_supplements`
+--
+
+INSERT INTO `prescription_supplements` (`id`, `prescription_id`, `supplement`) VALUES
+(1, 1, 'na');
 
 -- --------------------------------------------------------
 
@@ -564,9 +666,9 @@ CREATE TABLE `users` (
 INSERT INTO `users` (`id`, `name`, `email`, `phone`, `dob`, `gender`, `address`, `role`, `username`, `password`, `created_at`) VALUES
 (1, 'Muntasir Rahman Rafin', 'mun.rafin@gmail.com', '01890308362', '2000-10-10', 'Male', 'Dhaka', 'patient', 'rafins', '$2y$10$qf0xX.WcRKLpQtm50Kwch.riVTD.lpl1nL1PRC5Gj2cw.RlBoVhPK', '2025-07-20 16:13:47'),
 (5, 'Muhaimin Mahin', 'mahin@gmail.com', '01848353366', '2000-10-10', 'Male', 'Dhaka', 'doctor', 'mahin', '$2y$10$9J36E2xqRK0sU0Yo7D3Hne6b9.bmd2Tv9539V4o6.zld/QQVxNuzm', '2025-07-21 06:27:34'),
-(6, 'Tanvir Alam\r\n', 'tanvir@gmail.com', '11111111111', '2000-10-10', 'Male', 'Dhaka', 'doctor', 'rafind1', '$2y$10$6wffngjFJCs8XEk2pvPyae3LCLXg9UILD21xTUgRxx5Gn1S7D1r5q', '2025-07-22 11:45:02'),
 (7, 'Farzana Rahman', 'farzana@gmail.com', '11111111111', '2000-10-10', 'Female', 'Dhaka', 'doctor', 'rafind2', '$2y$10$OWgDZ1Pq6sK/iQW8FUexQOtLI0trxXMbK2rfsVAtQBaYoKUKooyku', '2025-07-22 11:53:01'),
-(8, 'Nayema Kabeer', 'nayema@gmail.com', '11111111111', '2000-10-10', 'Female', 'Barishal', 'doctor', 'rafind3', '$2y$10$380ctRsLFz8.YFSAn0V0E.5HbCBsekMr9NaZfm9bCQnrkf0NgwoZ2', '2025-07-22 11:54:21');
+(8, 'Nayema Kabeer', 'nayema@gmail.com', '11111111111', '2000-10-10', 'Female', 'Barishal', 'doctor', 'rafind3', '$2y$10$380ctRsLFz8.YFSAn0V0E.5HbCBsekMr9NaZfm9bCQnrkf0NgwoZ2', '2025-07-22 11:54:21'),
+(9, 'Rafin', 'mun.rafin@gmail.comm', '11111111111', '2000-10-10', 'Male', 'dhaka', 'admin', 'rafina', '$2y$10$3gj1oe4Cnx4htJLSgKLH9.WGqQtiqws2wQz9KO.GqinPCLSO82XhG', '2025-08-12 09:02:02');
 
 --
 -- Indexes for dumped tables
@@ -659,6 +761,41 @@ ALTER TABLE `prescriptions`
   ADD KEY `appointment_id` (`appointment_id`);
 
 --
+-- Indexes for table `prescription_diet`
+--
+ALTER TABLE `prescription_diet`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `prescription_id` (`prescription_id`);
+
+--
+-- Indexes for table `prescription_habits`
+--
+ALTER TABLE `prescription_habits`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `prescription_id` (`prescription_id`);
+
+--
+-- Indexes for table `prescription_medical_tests`
+--
+ALTER TABLE `prescription_medical_tests`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `prescription_id` (`prescription_id`);
+
+--
+-- Indexes for table `prescription_medicines`
+--
+ALTER TABLE `prescription_medicines`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `prescription_id` (`prescription_id`);
+
+--
+-- Indexes for table `prescription_supplements`
+--
+ALTER TABLE `prescription_supplements`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `prescription_id` (`prescription_id`);
+
+--
 -- Indexes for table `step_logs`
 --
 ALTER TABLE `step_logs`
@@ -681,7 +818,7 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `appointments`
 --
 ALTER TABLE `appointments`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT for table `calorie_burned`
@@ -747,7 +884,37 @@ ALTER TABLE `patients`
 -- AUTO_INCREMENT for table `prescriptions`
 --
 ALTER TABLE `prescriptions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
+-- AUTO_INCREMENT for table `prescription_diet`
+--
+ALTER TABLE `prescription_diet`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
+-- AUTO_INCREMENT for table `prescription_habits`
+--
+ALTER TABLE `prescription_habits`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
+-- AUTO_INCREMENT for table `prescription_medical_tests`
+--
+ALTER TABLE `prescription_medical_tests`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
+-- AUTO_INCREMENT for table `prescription_medicines`
+--
+ALTER TABLE `prescription_medicines`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
+-- AUTO_INCREMENT for table `prescription_supplements`
+--
+ALTER TABLE `prescription_supplements`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `step_logs`
@@ -759,7 +926,7 @@ ALTER TABLE `step_logs`
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- Constraints for dumped tables
@@ -815,6 +982,36 @@ ALTER TABLE `patients`
 --
 ALTER TABLE `prescriptions`
   ADD CONSTRAINT `prescriptions_ibfk_1` FOREIGN KEY (`appointment_id`) REFERENCES `appointments` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `prescription_diet`
+--
+ALTER TABLE `prescription_diet`
+  ADD CONSTRAINT `prescription_diet_ibfk_1` FOREIGN KEY (`prescription_id`) REFERENCES `prescriptions` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `prescription_habits`
+--
+ALTER TABLE `prescription_habits`
+  ADD CONSTRAINT `prescription_habits_ibfk_1` FOREIGN KEY (`prescription_id`) REFERENCES `prescriptions` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `prescription_medical_tests`
+--
+ALTER TABLE `prescription_medical_tests`
+  ADD CONSTRAINT `prescription_medical_tests_ibfk_1` FOREIGN KEY (`prescription_id`) REFERENCES `prescriptions` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `prescription_medicines`
+--
+ALTER TABLE `prescription_medicines`
+  ADD CONSTRAINT `prescription_medicines_ibfk_1` FOREIGN KEY (`prescription_id`) REFERENCES `prescriptions` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `prescription_supplements`
+--
+ALTER TABLE `prescription_supplements`
+  ADD CONSTRAINT `prescription_supplements_ibfk_1` FOREIGN KEY (`prescription_id`) REFERENCES `prescriptions` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `step_logs`

@@ -2,7 +2,7 @@
 // dpPC.php - Database connection for PersoCare
 
 $host = 'localhost';
-$dbname = 'persocare';
+$dbname = 'cancare';
 $username = 'root';
 $password = ''; // Default XAMPP password is empty
 

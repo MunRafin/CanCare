@@ -46,26 +46,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
     $exercise_frequency = $_POST['exercise_frequency'] ?? null;
     $dietary_restrictions = $_POST['dietary_restrictions'] ?? null;
 
-    // Handle profile picture upload
-    $profile_picture = $patient['profile_picture'] ?? null;
-    if (isset($_FILES['profile_picture']) && $_FILES['profile_picture']['error'] === UPLOAD_ERR_OK) {
-        $upload_dir = '../uploads/profiles/';
-        if (!file_exists($upload_dir)) {
-            mkdir($upload_dir, 0777, true);
-        }
-        
-        $file_ext = pathinfo($_FILES['profile_picture']['name'], PATHINFO_EXTENSION);
-        $new_filename = 'user_' . $user_id . '_' . time() . '.' . $file_ext;
-        $upload_path = $upload_dir . $new_filename;
-        
-        if (move_uploaded_file($_FILES['profile_picture']['tmp_name'], $upload_path)) {
-            // Delete old profile picture if exists
-            if ($profile_picture && file_exists($upload_dir . $profile_picture)) {
-                unlink($upload_dir . $profile_picture);
-            }
-            $profile_picture = $new_filename;
-        }
-    }
+    // Remove profile picture upload logic
+    $profile_picture = null;
 
     if ($patient) {
         // Update existing record
@@ -337,7 +319,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
     <div class="container">
         <div class="profile-header">
             <?php
-            $profile_pic = isset($patient['profile_picture']) ? '../uploads/profiles/' . $patient['profile_picture'] : '..zphotos/profile_img.png';
+            // The profile picture is now a static image, no longer user-changeable
+            $profile_pic = '../zphotos/profile_img.png';
             ?>
             <img src="<?= htmlspecialchars($profile_pic) ?>" alt="Profile Picture" class="profile-picture">
             <h1 class="profile-name"><?= htmlspecialchars($user['name']) ?></h1>
@@ -412,10 +395,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
                     
                     <div class="profile-picture-upload">
                         <img src="<?= htmlspecialchars($profile_pic) ?>" alt="Profile Picture Preview" class="profile-picture-preview" id="profile-picture-preview">
-                        <input type="file" name="profile_picture" id="profile_picture" accept="image/*" style="display: none;">
-                        <button type="button" onclick="document.getElementById('profile_picture').click()" class="edit-profile-btn">
-                            Change Profile Picture
-                        </button>
                     </div>
                     
                     <div class="form-group">
@@ -528,19 +507,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
             </div>
         </div>
     </div>
-
-    <script>
-        // Preview profile picture before upload
-        document.getElementById('profile_picture').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    document.getElementById('profile-picture-preview').src = event.target.result;
-                }
-                reader.readAsDataURL(file);
-            }
-        });
-    </script>
 </body>
 </html>

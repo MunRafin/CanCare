@@ -809,5 +809,207 @@ $page_file = "doctor_" . $page . ".php";
   });
 </script>
 
+<div id="ai-chat-container">
+    <button id="ai-chat-bubble"><i class="fas fa-robot"></i></button>
+    <div id="ai-chat-window">
+        <div id="ai-chat-header">
+            <h3>AI Assistant</h3>
+            <button id="ai-close-chat">&times;</button>
+        </div>
+        <div id="ai-chat-body">
+            <div class="ai-chat-message bot-message">
+                Hello, I'm your AI assistant. How can I help you?
+            </div>
+        </div>
+        <div id="ai-chat-footer">
+            <input type="text" id="ai-chat-input" placeholder="Ask me anything...">
+            <button id="ai-send-btn"><i class="fas fa-paper-plane"></i></button>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Chat UI Styles */
+#ai-chat-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+}
+#ai-chat-bubble {
+    width: 55px;
+    height: 55px;
+    border-radius: 50%;
+    background-color: #059669;
+    color: white;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    transition: transform 0.3s;
+}
+#ai-chat-bubble:hover {
+    transform: scale(1.1);
+}
+#ai-chat-window {
+    width: 350px;
+    height: 450px;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+    display: none; /* Initially hidden */
+    flex-direction: column;
+    background-color: #f1f5f9;
+}
+#ai-chat-header {
+    background-color: #059669;
+    color: white;
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+#ai-chat-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+#ai-close-chat {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+}
+#ai-chat-body {
+    flex-grow: 1;
+    padding: 15px;
+    overflow-y: auto;
+    background-color: #f8fafc;
+}
+.ai-chat-message {
+    padding: 10px 15px;
+    border-radius: 18px;
+    margin-bottom: 10px;
+    max-width: 80%;
+    word-wrap: break-word;
+}
+.user-message {
+    background-color: #059669;
+    color: white;
+    margin-left: auto;
+}
+.bot-message {
+    background-color: #e2e8f0;
+    color: #1e293b;
+    margin-right: auto;
+}
+#ai-chat-footer {
+    display: flex;
+    padding: 10px;
+    background-color: white;
+    border-top: 1px solid #e2e8f0;
+}
+#ai-chat-input {
+    flex-grow: 1;
+    border: 1px solid #cbd5e1;
+    border-radius: 20px;
+    padding: 10px 15px;
+    font-size: 1rem;
+    margin-right: 10px;
+}
+#ai-chat-input:focus {
+    outline: none;
+    border-color: #059669;
+}
+#ai-send-btn {
+    background: #059669;
+    border: none;
+    color: white;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1rem;
+}
+</style>
+
+<script>
+// Chat UI JavaScript
+document.addEventListener('DOMContentLoaded', () => {
+    const chatBubble = document.getElementById('ai-chat-bubble');
+    const chatWindow = document.getElementById('ai-chat-window');
+    const closeChatBtn = document.getElementById('ai-close-chat');
+    const chatBody = document.getElementById('ai-chat-body');
+    const chatInput = document.getElementById('ai-chat-input');
+    const sendBtn = document.getElementById('ai-send-btn');
+
+    chatBubble.addEventListener('click', () => {
+        chatWindow.style.display = 'flex';
+        chatBubble.style.display = 'none';
+        chatInput.focus();
+    });
+
+    closeChatBtn.addEventListener('click', () => {
+        chatWindow.style.display = 'none';
+        chatBubble.style.display = 'flex';
+    });
+
+    sendBtn.addEventListener('click', sendMessage);
+    chatInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            sendMessage();
+        }
+    });
+
+    async function sendMessage() {
+        const message = chatInput.value.trim();
+        if (!message) return;
+
+        // Display user message
+        const userMsgDiv = document.createElement('div');
+        userMsgDiv.className = 'ai-chat-message user-message';
+        userMsgDiv.textContent = message;
+        chatBody.appendChild(userMsgDiv);
+        chatInput.value = '';
+        chatBody.scrollTop = chatBody.scrollHeight;
+
+        // Display a loading indicator
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'ai-chat-message bot-message';
+        loadingDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        chatBody.appendChild(loadingDiv);
+        chatBody.scrollTop = chatBody.scrollHeight;
+
+        try {
+            const response = await fetch('../ai_chat_handler.php', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: `message=${encodeURIComponent(message)}`
+            });
+            const data = await response.json();
+            
+            chatBody.removeChild(loadingDiv);
+            
+            const botMsgDiv = document.createElement('div');
+            botMsgDiv.className = 'ai-chat-message bot-message';
+            botMsgDiv.textContent = data.response || data.error || "An unexpected error occurred.";
+            chatBody.appendChild(botMsgDiv);
+
+        } catch (error) {
+            chatBody.removeChild(loadingDiv);
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'ai-chat-message bot-message';
+            errorDiv.textContent = "Failed to connect to the assistant. Please try again.";
+            chatBody.appendChild(errorDiv);
+        }
+
+        chatBody.scrollTop = chatBody.scrollHeight;
+    }
+});
+</script>
+
 </body>
 </html>
