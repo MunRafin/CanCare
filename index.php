@@ -354,7 +354,7 @@
                     <li><a href="#contact">Contact</a></li>
                 </ul>
                 <div class="auth-buttons">
-                    <a href="CanCare/loginPC.html" class="btn btn-login">Login</a>
+                    <a href="loginPC.html" class="btn btn-login">Login</a>
                     <a href="registerPC.html" class="btn btn-register">Register</a>
                 </div>
             </nav>

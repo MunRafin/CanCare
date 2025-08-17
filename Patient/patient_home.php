@@ -9,20 +9,22 @@ $page = $_GET['page'] ?? 'dashboard';
 
 // Allowed page keys (without 'patient_' prefix)
 $allowed_pages = [
-    'dashboard', 
-    'dietplan', 
-    'exroutine', 
-    'addentry', 
-    'foodlog', 
-    'excerciselog', 
+    'dashboard',
+    'dietplan',
+    'exroutine',
+    'addentry',
+    'foodlog',
+    'excerciselog',
     'medischedule',
     'medicinelog',
-    'appointment', 
-    'prescriptions', 
-    'reports', 
+    'appointment',
+    'prescriptions',
+    'reports',
     'profile',
-    'records'  // Added to match patient_records.php
+    'records',
+    'chat' // ✅ Added for patient_chat.php
 ];
+
 
 // Construct the corresponding file name
 $page_file = "patient_" . $page . ".php";
@@ -31,7 +33,7 @@ $page_file = "patient_" . $page . ".php";
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>PersoCare | Patient Panel</title>
+  <title>CanCare | Patient Panel</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
   <style>
@@ -522,7 +524,7 @@ $page_file = "patient_" . $page . ".php";
         <div class="brand-icon">
           <i class="fas fa-heart-pulse"></i>
         </div>
-        <div class="brand-text">PersoCare</div>
+        <div class="brand-text">CanCare</div>
       </div>
       
       <div class="profile-section">
@@ -562,8 +564,18 @@ $page_file = "patient_" . $page . ".php";
               Medicine Schedule
             </a>
           </li>
+
+              <li>
+      <a href="?page=chat" class="<?= $page == 'chat' ? 'active' : '' ?>">
+        <div class="menu-icon"><i class="fas fa-comments"></i></div>
+        Chat Assistant
+      </a>
+    </li>
+
         </ul>
       </div>
+      
+      
 
       <div class="menu-section">
         <div class="menu-title">Data Entry</div>

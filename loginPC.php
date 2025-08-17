@@ -24,7 +24,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             // Role-based redirection
             switch ($user['role']) {
                 case 'admin':
-                    header("Location: Admin/admin.php");
+                    header("Location: Admin/admin_home.php");
                     break;
                 case 'doctor':
                     header("Location: Doctor/doctor_home.php");

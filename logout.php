@@ -7,7 +7,7 @@ session_destroy();
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>PersoCare - Logged Out</title>
+  <title>CanCare - Logged Out</title>
   <meta http-equiv="refresh" content="3;url=loginPC.html">
   <style>
     body {

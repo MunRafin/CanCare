@@ -12,13 +12,14 @@ $user_id = $_SESSION['user_id'];
 // Handle AJAX appointment booking request
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'book_appointment') {
     $doctor_id = intval($_POST['doctor_id']);
-    $date = $_POST['date'];       // format: YYYY-MM-DD
-    $time = $_POST['time'];       // format: HH:MM:SS
+    $date = $_POST['date'];    // format: YYYY-MM-DD
+    $time = $_POST['time'];    // format: HH:MM:SS
     $symptoms = $_POST['symptoms'] ?? null;
 
     $hour_start = substr($time, 0, 2) . ':00:00';
     $hour_end = substr($time, 0, 2) . ':59:59';
 
+    // Check if the time slot is fully booked (up to 10 appointments per hour)
     $stmt = $conn->prepare("SELECT COUNT(*) FROM appointments WHERE doctor_id = ? AND appointment_date = ? AND appointment_time BETWEEN ? AND ?");
     $stmt->execute([$doctor_id, $date, $hour_start, $hour_end]);
     $count = $stmt->fetchColumn();
@@ -28,6 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         exit;
     }
 
+    // Check if the patient already has an appointment at this specific time
     $stmt = $conn->prepare("SELECT COUNT(*) FROM appointments WHERE patient_id = ? AND appointment_date = ? AND appointment_time = ?");
     $stmt->execute([$user_id, $date, $time]);
     if ($stmt->fetchColumn() > 0) {
@@ -35,6 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         exit;
     }
 
+    // Insert the new appointment
     $stmt = $conn->prepare("INSERT INTO appointments (patient_id, doctor_id, appointment_date, appointment_time, symptoms, appointment_status, created_at) VALUES (?, ?, ?, ?, ?, 'made', NOW())");
     $result = $stmt->execute([$user_id, $doctor_id, $date, $time, $symptoms]);
 
@@ -46,9 +49,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
-// Fetch doctors with profile images
-$stmt = $conn->prepare("SELECT u.id as user_id, u.name, u.email, d.qualification, d.specialization, d.service_days, d.service_time, d.profile_image FROM users u JOIN doctors d ON u.id = d.user_id WHERE u.role = 'doctor'");
-$stmt->execute();
+// Fetch doctors with profile images based on search term
+$search_term = '';
+if (isset($_GET['search']) && !empty($_GET['search'])) {
+    $search_term = trim($_GET['search']);
+    $stmt = $conn->prepare("SELECT u.id as user_id, u.name, u.email, d.qualification, d.specialization, d.service_days, d.service_time, d.profile_image FROM users u JOIN doctors d ON u.id = d.user_id WHERE u.role = 'doctor' AND (u.name LIKE ? OR d.specialization LIKE ? OR d.qualification LIKE ?) ORDER BY u.name");
+    $search_param = '%' . $search_term . '%';
+    $stmt->execute([$search_param, $search_param, $search_param]);
+} else {
+    $stmt = $conn->prepare("SELECT u.id as user_id, u.name, u.email, d.qualification, d.specialization, d.service_days, d.service_time, d.profile_image FROM users u JOIN doctors d ON u.id = d.user_id WHERE u.role = 'doctor' ORDER BY u.name");
+    $stmt->execute();
+}
 $doctors = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 function parseServiceDays($str) {
@@ -64,7 +75,7 @@ $maxDate = (new DateTime('today'))->modify("+$maxDays days")->format('Y-m-d');
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PersoCare | Book Appointment</title>
+    <title>CanCare | Book Appointment</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         * {
@@ -103,9 +114,100 @@ $maxDate = (new DateTime('today'))->modify("+$maxDays days")->format('Y-m-d');
             opacity: 0.9;
         }
 
+        /* Search Section */
+        .search-section {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 40px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        }
+
+        .search-form {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .search-input-wrapper {
+            flex: 1;
+            min-width: 300px;
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 15px 50px 15px 20px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #695CFE;
+            box-shadow: 0 0 0 3px rgba(105, 92, 254, 0.1);
+        }
+
+        .search-btn, .clear-btn {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 120px;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .search-btn {
+            background: linear-gradient(135deg, #695CFE, #9C88FF);
+            color: white;
+        }
+
+        .search-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(105, 92, 254, 0.4);
+        }
+
+        .clear-btn {
+            background: #f8f9fa;
+            color: #666;
+            border: 2px solid #e1e5e9;
+        }
+
+        .clear-btn:hover {
+            background: #e9ecef;
+            color: #495057;
+        }
+
+        .search-icon {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #666;
+        }
+
+        /* Results counter */
+        .results-info {
+            background: rgba(105, 92, 254, 0.1);
+            color: #695CFE;
+            padding: 10px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        /* Doctors Grid - 3 per row */
         .doctors-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            grid-template-columns: repeat(3, 1fr);
             gap: 25px;
             margin-bottom: 40px;
         }
@@ -149,8 +251,8 @@ $maxDate = (new DateTime('today'))->modify("+$maxDays days")->format('Y-m-d');
         }
 
         .doctor-image {
-            width: 100px;
-            height: 100px;
+            width: 80px;
+            height: 80px;
             border-radius: 50%;
             object-fit: cover;
             border: 4px solid #695CFE;
@@ -161,15 +263,15 @@ $maxDate = (new DateTime('today'))->modify("+$maxDays days")->format('Y-m-d');
             position: absolute;
             bottom: 5px;
             right: 5px;
-            width: 20px;
-            height: 20px;
+            width: 16px;
+            height: 16px;
             background: #10B981;
             border: 3px solid white;
             border-radius: 50%;
         }
 
         .doctor-info h2 {
-            font-size: 1.5rem;
+            font-size: 1.3rem;
             color: #1a1a1a;
             margin-bottom: 8px;
             font-weight: 600;
@@ -180,13 +282,13 @@ $maxDate = (new DateTime('today'))->modify("+$maxDays days")->format('Y-m-d');
             align-items: center;
             gap: 8px;
             margin-bottom: 6px;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             color: #666;
         }
 
         .doctor-info .info-item i {
             color: #695CFE;
-            width: 16px;
+            width: 14px;
         }
 
         .service-days, .service-time {
@@ -199,23 +301,23 @@ $maxDate = (new DateTime('today'))->modify("+$maxDays days")->format('Y-m-d');
         }
 
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
 
         .form-group label {
             display: block;
             font-weight: 600;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             color: #333;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
         }
 
         .form-control {
             width: 100%;
-            padding: 12px 15px;
+            padding: 10px 12px;
             border: 2px solid #e1e5e9;
-            border-radius: 10px;
-            font-size: 14px;
+            border-radius: 8px;
+            font-size: 13px;
             transition: all 0.3s ease;
             background: #fafafa;
         }
@@ -238,19 +340,19 @@ $maxDate = (new DateTime('today'))->modify("+$maxDays days")->format('Y-m-d');
 
         textarea.form-control {
             resize: vertical;
-            min-height: 80px;
+            min-height: 70px;
         }
 
         .book-btn {
             width: 100%;
-            padding: 15px;
+            padding: 12px;
             background: linear-gradient(135deg, #695CFE, #9C88FF);
             border: none;
             color: white;
-            border-radius: 12px;
+            border-radius: 10px;
             cursor: pointer;
             font-weight: 600;
-            font-size: 1rem;
+            font-size: 0.9rem;
             transition: all 0.3s ease;
             position: relative;
             overflow: hidden;
@@ -281,11 +383,12 @@ $maxDate = (new DateTime('today'))->modify("+$maxDays days")->format('Y-m-d');
         }
 
         .message {
-            margin-top: 15px;
-            padding: 12px 15px;
-            border-radius: 8px;
+            margin-top: 12px;
+            padding: 10px 12px;
+            border-radius: 6px;
             font-weight: 600;
             text-align: center;
+            font-size: 0.85rem;
         }
 
         .success {
@@ -304,11 +407,31 @@ $maxDate = (new DateTime('today'))->modify("+$maxDays days")->format('Y-m-d');
             display: inline-block;
             background: linear-gradient(135deg, #695CFE, #9C88FF);
             color: white;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 0.75rem;
             font-weight: 500;
             margin-top: 8px;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 60px 20px;
+            background: white;
+            border-radius: 15px;
+            color: #666;
+        }
+
+        .no-results i {
+            font-size: 3rem;
+            color: #695CFE;
+            margin-bottom: 20px;
+        }
+
+        .no-results h3 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            color: #333;
         }
 
         /* Responsive Design */
@@ -336,6 +459,19 @@ $maxDate = (new DateTime('today'))->modify("+$maxDays days")->format('Y-m-d');
             .doctor-card {
                 padding: 20px;
             }
+
+            .search-form {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .search-input-wrapper {
+                min-width: auto;
+            }
+
+            .search-btn, .clear-btn {
+                min-width: auto;
+            }
         }
 
         @media (max-width: 480px) {
@@ -345,6 +481,10 @@ $maxDate = (new DateTime('today'))->modify("+$maxDays days")->format('Y-m-d');
             
             .doctor-card {
                 padding: 15px;
+            }
+
+            .search-section {
+                padding: 20px;
             }
         }
 
@@ -377,6 +517,34 @@ $maxDate = (new DateTime('today'))->modify("+$maxDays days")->format('Y-m-d');
             <p>Choose from our qualified doctors and schedule your visit</p>
         </div>
 
+        <div class="search-section">
+            <form method="GET" class="search-form">
+                <div class="search-input-wrapper">
+                    <input type="text" name="search" class="search-input" 
+                           placeholder="Search doctors by name or specialization (e.g., Cardiology, Endocrinology)"
+                           value="<?= htmlspecialchars($search_term) ?>">
+                    <i class="fas fa-search search-icon"></i>
+                </div>
+                <button type="submit" class="search-btn">
+                    <i class="fas fa-search"></i> Search
+                </button>
+                <a href="<?= $_SERVER['PHP_SELF'] ?>" class="clear-btn">
+                    <i class="fas fa-times"></i> Clear
+                </a>
+            </form>
+        </div>
+
+        <?php if (!empty($search_term) || count($doctors) > 0): ?>
+        <div class="results-info">
+            <?php if (!empty($search_term)): ?>
+                Search results for "<?= htmlspecialchars($search_term) ?>": Found <?= count($doctors) ?> doctor(s)
+            <?php else: ?>
+                Showing all <?= count($doctors) ?> available doctors
+            <?php endif; ?>
+        </div>
+        <?php endif; ?>
+
+        <?php if (count($doctors) > 0): ?>
         <div class="doctors-grid">
             <?php foreach ($doctors as $doc):
                 $serviceTime = $doc['service_time'];
@@ -436,10 +604,10 @@ $maxDate = (new DateTime('today'))->modify("+$maxDays days")->format('Y-m-d');
                             <i class="fas fa-notes-medical"></i> Symptoms (optional):
                         </label>
                         <textarea id="symptoms-<?= $doc['user_id'] ?>" name="symptoms" 
-                                  class="form-control" placeholder="Describe your symptoms..."></textarea>
+                                 class="form-control" placeholder="Describe your symptoms..."></textarea>
                     </div>
 
-                    <button class="book-btn" onclick="bookAppointment(<?= $doc['user_id'] ?>)">
+                    <button class="book-btn" onclick="bookAppointment(<?= $doc['user_id'] ?>, event)">
                         <i class="fas fa-calendar-plus"></i> Book Appointment
                     </button>
                     <div id="message-<?= $doc['user_id'] ?>" class="message" style="display: none;"></div>
@@ -447,6 +615,13 @@ $maxDate = (new DateTime('today'))->modify("+$maxDays days")->format('Y-m-d');
             </div>
             <?php endforeach; ?>
         </div>
+        <?php else: ?>
+        <div class="no-results">
+            <i class="fas fa-search"></i>
+            <h3>No Doctors Found</h3>
+            <p>We couldn't find any doctors matching your search criteria "<?= htmlspecialchars($search_term) ?>". Try adjusting your search terms or clear the search to see all available doctors.</p>
+        </div>
+        <?php endif; ?>
     </div>
 
     <script>
@@ -493,7 +668,7 @@ $maxDate = (new DateTime('today'))->modify("+$maxDays days")->format('Y-m-d');
             }
         }
 
-        function bookAppointment(doctorId) {
+        function bookAppointment(doctorId, event) {
             const dateInput = document.getElementById(`date-${doctorId}`);
             const timeSelect = document.getElementById(`time-${doctorId}`);
             const symptomsInput = document.getElementById(`symptoms-${doctorId}`);
@@ -512,7 +687,7 @@ $maxDate = (new DateTime('today'))->modify("+$maxDays days")->format('Y-m-d');
             if (!confirmed) return;
 
             // Show loading state
-            const bookBtn = event.target;
+            const bookBtn = event.target.closest('.book-btn');
             const originalText = bookBtn.innerHTML;
             bookBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Booking...';
             bookBtn.disabled = true;
@@ -526,18 +701,24 @@ $maxDate = (new DateTime('today'))->modify("+$maxDays days")->format('Y-m-d');
                 bookBtn.innerHTML = originalText;
                 bookBtn.disabled = false;
                 
-                try {
-                    const res = JSON.parse(xhr.responseText);
-                    showMessage(messageElem, res.message, res.status);
-                    
-                    if (res.status === 'success') {
-                        // Reset form on success
-                        dateInput.value = '';
-                        timeSelect.innerHTML = '<option value="">--Select time--</option>';
-                        symptomsInput.value = '';
+                if (xhr.status === 200) {
+                    try {
+                        const res = JSON.parse(xhr.responseText);
+                        showMessage(messageElem, res.message, res.status);
+                        
+                        if (res.status === 'success') {
+                            // Reset form on success
+                            dateInput.value = '';
+                            timeSelect.innerHTML = '<option value="">--Select time--</option>';
+                            symptomsInput.value = '';
+                        }
+                    } catch (e) {
+                        console.error('JSON parsing error:', e);
+                        console.error('Response text:', xhr.responseText);
+                        showMessage(messageElem, "Error processing server response.", "error");
                     }
-                } catch {
-                    showMessage(messageElem, "Unexpected response from server.", "error");
+                } else {
+                    showMessage(messageElem, "Server error. Please try again.", "error");
                 }
             };
             

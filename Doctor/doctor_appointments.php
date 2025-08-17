@@ -1,13 +1,16 @@
 <?php
-// Ensure this is called from doctor_home.php with proper session
+// Start session at the very top
+session_start();
+
+// Redirect if not doctor
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'doctor') {
     header("Location: ../loginPC.html");
     exit();
 }
 
-session_start();
 require_once '../dbPC.php';
 
+// Create database connection
 try {
     $conn = new mysqli($servername, $username, $password, $dbname);
     if ($conn->connect_error) {
@@ -137,402 +140,448 @@ if (isset($week_stmt)) $week_stmt->close();
 $conn->close();
 ?>
 
-<style>
-.appointment-container {
-    padding: 0;
-    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-    min-height: 100vh;
-}
-
-.appointment-header {
-    background: linear-gradient(135deg, #059669 0%, #047857 100%);
-    color: white;
-    padding: 30px;
-    border-radius: 0 0 20px 20px;
-    margin-bottom: 30px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-}
-
-.welcome-section {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 20px;
-}
-
-.welcome-text h1 {
-    font-size: 2.5rem;
-    font-weight: 700;
-    margin-bottom: 10px;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.welcome-text p {
-    font-size: 1.1rem;
-    opacity: 0.9;
-    margin-bottom: 5px;
-}
-
-.doctor-stats {
-    text-align: right;
-    background: rgba(255,255,255,0.1);
-    padding: 20px;
-    border-radius: 15px;
-    backdrop-filter: blur(10px);
-}
-
-.doctor-stats h3 {
-    font-size: 1.2rem;
-    margin-bottom: 10px;
-}
-
-.doctor-stats p {
-    margin: 5px 0;
-    opacity: 0.9;
-}
-
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 25px;
-    margin-bottom: 40px;
-}
-
-.stat-card {
-    background: white;
-    border-radius: 20px;
-    padding: 30px;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.08);
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
-}
-
-.stat-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: var(--card-color, #059669);
-    border-radius: 20px 20px 0 0;
-}
-
-.stat-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 15px 40px rgba(0,0,0,0.12);
-}
-
-.stat-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-}
-
-.stat-icon {
-    width: 60px;
-    height: 60px;
-    border-radius: 15px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
-    color: white;
-    background: var(--card-color, #059669);
-}
-
-.stat-number {
-    font-size: 2.5rem;
-    font-weight: 700;
-    color: #1e293b;
-    margin-bottom: 5px;
-}
-
-.stat-label {
-    color: #64748b;
-    font-size: 1rem;
-    font-weight: 500;
-}
-
-.stat-trend {
-    font-size: 0.9rem;
-    color: #10b981;
-    margin-top: 10px;
-}
-
-.charts-section {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 30px;
-    margin-bottom: 40px;
-}
-
-.chart-card {
-    background: white;
-    border-radius: 20px;
-    padding: 30px;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.08);
-}
-
-.chart-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 25px;
-}
-
-.chart-title {
-    font-size: 1.3rem;
-    font-weight: 600;
-    color: #1e293b;
-}
-
-.chart-container {
-    height: 300px;
-    position: relative;
-}
-
-.recent-appointments {
-    background: white;
-    border-radius: 20px;
-    padding: 30px;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.08);
-}
-
-.section-title {
-    font-size: 1.4rem;
-    font-weight: 600;
-    color: #1e293b;
-    margin-bottom: 25px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-/* Notification Styles */
-.notification {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-    padding: 15px 20px;
-    z-index: 10000;
-    transform: translateX(400px);
-    opacity: 0;
-    transition: all 0.3s ease;
-    border-left: 4px solid #059669;
-    min-width: 300px;
-}
-
-.notification.show {
-    transform: translateX(0);
-    opacity: 1;
-}
-
-.notification-success {
-    border-left-color: #10b981;
-}
-
-.notification-error {
-    border-left-color: #ef4444;
-}
-
-.notification-content {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.notification-content i {
-    font-size: 1.2rem;
-}
-
-.notification-success .notification-content i {
-    color: #10b981;
-}
-
-.notification-error .notification-content i {
-    color: #ef4444;
-}
-
-.appointment-actions {
-    display: flex;
-    gap: 10px;
-    margin-top: 15px;
-}
-
-.accept-btn, .reject-btn {
-    padding: 8px 16px;
-    border: none;
-    border-radius: 6px;
-    font-size: 0.85rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
-
-.accept-btn {
-    background: #10b981;
-    color: white;
-}
-
-.accept-btn:hover {
-    background: #059669;
-    transform: translateY(-2px);
-}
-
-.reject-btn {
-    background: #ef4444;
-    color: white;
-}
-
-.reject-btn:hover {
-    background: #dc2626;
-    transform: translateY(-2px);
-}
-
-.appointment-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    padding: 25px;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    margin-bottom: 15px;
-    transition: all 0.3s ease;
-    background: white;
-}
-
-.appointment-item:hover {
-    background: #f8fafc;
-    border-color: #059669;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-}
-
-.patient-info h4 {
-    font-weight: 600;
-    color: #1e293b;
-    margin-bottom: 5px;
-}
-
-.patient-info p {
-    color: #64748b;
-    font-size: 0.9rem;
-}
-
-.appointment-meta {
-    text-align: right;
-}
-
-.status-badge {
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: 500;
-    margin-bottom: 5px;
-    display: inline-block;
-}
-
-.status-made { background: #fef3c7; color: #92400e; }
-.status-accepted { background: #dcfce7; color: #166534; }
-.status-done { background: #e0e7ff; color: #3730a3; }
-
-.appointment-date {
-    color: #64748b;
-    font-size: 0.9rem;
-}
-
-.quick-actions {
-    display: flex;
-    gap: 15px;
-    margin-top: 30px;
-    flex-wrap: wrap;
-}
-
-.action-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px 24px;
-    background: #059669;
-    color: white;
-    border: none;
-    border-radius: 10px;
-    font-weight: 500;
-    text-decoration: none;
-    transition: all 0.3s ease;
-    cursor: pointer;
-}
-
-.action-btn:hover {
-    background: #047857;
-    transform: translateY(-2px);
-    color: white;
-}
-
-.action-btn.secondary {
-    background: #64748b;
-}
-
-.action-btn.secondary:hover {
-    background: #475569;
-}
-
-/* Responsive Design */
-@media (max-width: 1024px) {
-    .charts-section {
-        grid-template-columns: 1fr;
-    }
-}
-
-@media (max-width: 768px) {
-    .stats-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .welcome-section {
-        flex-direction: column;
-        text-align: center;
-    }
-    
-    .doctor-stats {
-        text-align: center;
-    }
-    
-    .welcome-text h1 {
-        font-size: 2rem;
-    }
-}
-
-@media (max-width: 480px) {
-    .appointment-header {
-        padding: 20px;
-    }
-    
-    .stat-card, .chart-card, .recent-appointments {
-        padding: 20px;
-    }
-    
-    .appointment-item {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
-    }
-    
-    .appointment-meta {
-        text-align: left;
-    }
-}
-</style>
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctor Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        :root {
+            --primary: #059669;
+            --primary-dark: #047857;
+            --secondary: #3b82f6;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --info: #06b6d4;
+            --purple: #8b5cf6;
+            --gray-100: #f8fafc;
+            --gray-200: #e2e8f0;
+            --gray-300: #cbd5e1;
+            --gray-700: #334155;
+            --gray-800: #1e293b;
+            --gray-900: #0f172a;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            color: #334155;
+            min-height: 100vh;
+        }
+        
+        .appointment-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .appointment-header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 0 0 20px 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        
+        .welcome-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .welcome-text h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .welcome-text p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+        
+        .doctor-stats {
+            text-align: right;
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .doctor-stats h3 {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+        }
+        
+        .doctor-stats p {
+            margin: 5px 0;
+            opacity: 0.9;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--card-color, var(--primary));
+            border-radius: 20px 20px 0 0;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.12);
+        }
+        
+        .stat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .stat-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+            background: var(--card-color, var(--primary));
+        }
+        
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--gray-800);
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            color: var(--gray-700);
+            font-size: 1rem;
+            font-weight: 500;
+        }
+        
+        .stat-trend {
+            font-size: 0.9rem;
+            color: var(--success);
+            margin-top: 10px;
+        }
+        
+        .charts-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        
+        .chart-card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+        }
+        
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+        
+        .chart-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--gray-800);
+        }
+        
+        .chart-container {
+            height: 300px;
+            position: relative;
+        }
+        
+        .recent-appointments {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+            margin-bottom: 40px;
+        }
+        
+        .section-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: var(--gray-800);
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        /* Notification Styles */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            padding: 15px 20px;
+            z-index: 10000;
+            transform: translateX(400px);
+            opacity: 0;
+            transition: all 0.3s ease;
+            border-left: 4px solid var(--primary);
+            min-width: 300px;
+        }
+        
+        .notification.show {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        
+        .notification-success {
+            border-left-color: var(--success);
+        }
+        
+        .notification-error {
+            border-left-color: var(--danger);
+        }
+        
+        .notification-content {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .notification-content i {
+            font-size: 1.2rem;
+        }
+        
+        .notification-success .notification-content i {
+            color: var(--success);
+        }
+        
+        .notification-error .notification-content i {
+            color: var(--danger);
+        }
+        
+        .appointment-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .accept-btn, .reject-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .accept-btn {
+            background: var(--success);
+            color: white;
+        }
+        
+        .accept-btn:hover {
+            background: var(--primary);
+            transform: translateY(-2px);
+        }
+        
+        .reject-btn {
+            background: var(--danger);
+            color: white;
+        }
+        
+        .reject-btn:hover {
+            background: #dc2626;
+            transform: translateY(-2px);
+        }
+        
+        .appointment-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 25px;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+        
+        .appointment-item:hover {
+            background: var(--gray-100);
+            border-color: var(--primary);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        
+        .patient-info h4 {
+            font-weight: 600;
+            color: var(--gray-800);
+            margin-bottom: 5px;
+        }
+        
+        .patient-info p {
+            color: var(--gray-700);
+            font-size: 0.9rem;
+        }
+        
+        .appointment-meta {
+            text-align: right;
+        }
+        
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin-bottom: 5px;
+            display: inline-block;
+        }
+        
+        .status-made { background: #fef3c7; color: #92400e; }
+        .status-accepted { background: #dcfce7; color: #166534; }
+        .status-done { background: #e0e7ff; color: #3730a3; }
+        
+        .appointment-date {
+            color: var(--gray-700);
+            font-size: 0.9rem;
+        }
+        
+        .quick-actions {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 24px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .action-btn:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            color: white;
+        }
+        
+        .action-btn.secondary {
+            background: var(--gray-700);
+        }
+        
+        .action-btn.secondary:hover {
+            background: #475569;
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .charts-section {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .welcome-section {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .doctor-stats {
+                text-align: center;
+                width: 100%;
+            }
+            
+            .welcome-text h1 {
+                font-size: 2rem;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .appointment-header {
+                padding: 20px;
+            }
+            
+            .stat-card, .chart-card, .recent-appointments {
+                padding: 20px;
+            }
+            
+            .appointment-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            
+            .appointment-meta {
+                text-align: left;
+            }
+            
+            .appointment-actions {
+                width: 100%;
+                justify-content: flex-end;
+            }
+        }
+    </style>
+</head>
+<body>
 <div class="appointment-container">
     <!-- appointment Header -->
     <div class="appointment-header">
@@ -730,9 +779,6 @@ $conn->close();
         </a>
     </div>
 </div>
-
-<!-- Chart.js Library -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 
 <script>
 // Age Groups Chart
@@ -1029,10 +1075,7 @@ function showNotification(message, type = 'info') {
 
 // Auto-refresh every 5 minutes
 setInterval(refreshDashboard, 300000);
-</script>
 
-<!-- Error Handling for Charts -->
-<script>
 // Handle chart resize on window resize
 window.addEventListener('resize', function() {
     if (typeof ageGroupChart !== 'undefined') {
@@ -1070,97 +1113,67 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-<!-- 
-IMPORTANT: You need to create a file called 'update_appointment_status.php' in the same directory with this content:
-
+<!-- Embedded PHP script for update_appointment_status.php -->
 <?php
-session_start();
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'doctor') {
-    http_response_code(403);
-    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
-    exit();
-}
-
-$servername = "localhost";
-$username = "root";
-$password = "";
-$dbname = "persocare";
-
-try {
-    $conn = new mysqli($servername, $username, $password, $dbname);
-    if ($conn->connect_error) {
-        throw new Exception("Connection failed: " . $conn->connect_error);
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['embedded_update'])) {
+    // This is the embedded version of update_appointment_status.php
+    session_start();
+    if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'doctor') {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+        exit();
     }
-    $conn->set_charset("utf8");
-} catch (Exception $e) {
-    http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Database connection error']);
-    exit();
-}
 
-// Get JSON input
-$input = file_get_contents('php://input');
-$data = json_decode($input, true);
+    // Get JSON input from embedded request
+    $input = file_get_contents('php://input');
+    $data = json_decode($input, true);
 
-if (!isset($data['appointment_id']) || !isset($data['status'])) {
-    http_response_code(400);
-    echo json_encode(['success' => false, 'message' => 'Missing required fields']);
-    exit();
-}
+    if (!isset($data['appointment_id']) || !isset($data['status'])) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Missing required fields']);
+        exit();
+    }
 
-$appointment_id = intval($data['appointment_id']);
-$status = $data['status'];
-$doctor_id = $_SESSION['user_id'];
+    $appointment_id = intval($data['appointment_id']);
+    $status = $data['status'];
+    $doctor_user_id = $_SESSION['user_id']; // This is the user_id of the doctor (from users table)
 
-// Validate status
-$allowed_statuses = ['accepted', 'rejected'];
-if (!in_array($status, $allowed_statuses)) {
-    http_response_code(400);
-    echo json_encode(['success' => false, 'message' => 'Invalid status']);
-    exit();
-}
+    // Validate status
+    $allowed_statuses = ['accepted', 'rejected'];
+    if (!in_array($status, $allowed_statuses)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Invalid status']);
+        exit();
+    }
 
-// Verify the appointment belongs to this doctor
-$verify_query = "SELECT id FROM appointments WHERE id = ? AND doctor_id = ?";
-$verify_stmt = $conn->prepare($verify_query);
-$verify_stmt->bind_param("ii", $appointment_id, $doctor_id);
-$verify_stmt->execute();
-$result = $verify_stmt->get_result();
+    // Verify the appointment belongs to the current doctor (using doctor_user_id)
+    $verify_query = "SELECT id FROM appointments WHERE id = ? AND doctor_id = ?";
+    $verify_stmt = $conn->prepare($verify_query);
+    $verify_stmt->bind_param("ii", $appointment_id, $doctor_user_id);
+    $verify_stmt->execute();
+    $result = $verify_stmt->get_result();
 
-if ($result->num_rows === 0) {
-    http_response_code(403);
-    echo json_encode(['success' => false, 'message' => 'Appointment not found or access denied']);
-    exit();
-}
+    if ($result->num_rows === 0) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'Appointment not found or access denied']);
+        exit();
+    }
 
-// Update appointment status
-if ($status === 'rejected') {
-    // Delete the appointment if rejected
-    $update_query = "DELETE FROM appointments WHERE id = ? AND doctor_id = ?";
-} else {
-    // Update status if accepted
+    // Update appointment status with the same condition (to be safe)
     $update_query = "UPDATE appointments SET appointment_status = ? WHERE id = ? AND doctor_id = ?";
+    $update_stmt = $conn->prepare($update_query);
+    $update_stmt->bind_param("sii", $status, $appointment_id, $doctor_user_id);
+
+    if ($update_stmt->execute()) {
+        echo json_encode(['success' => true, 'message' => 'Appointment ' . $status . ' successfully']);
+    } else {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Failed to update appointment']);
+    }
+
+    $conn->close();
+    exit();
 }
-
-$update_stmt = $conn->prepare($update_query);
-
-if ($status === 'rejected') {
-    $update_stmt->bind_param("ii", $appointment_id, $doctor_id);
-} else {
-    $update_stmt->bind_param("sii", $status, $appointment_id, $doctor_id);
-}
-
-if ($update_stmt->execute()) {
-    echo json_encode(['success' => true, 'message' => 'Appointment ' . $status . ' successfully']);
-} else {
-    http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Failed to update appointment']);
-}
-
-$conn->close();
 ?>
-
--->
-
 </body>
 </html>

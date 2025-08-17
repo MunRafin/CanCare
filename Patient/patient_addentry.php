@@ -104,7 +104,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Add Entry - PersoCare</title>
+    <title>Add Entry - CanCare</title>
     <style>
         body {
             font-family: 'Segoe UI', sans-serif;
