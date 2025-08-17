@@ -2,6 +2,86 @@
 // Start session at the very top
 session_start();
 
+// Handle AJAX requests first (before any HTML output)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_status') {
+    // Set content type to JSON
+    header('Content-Type: application/json');
+    
+    // This handles the AJAX appointment status updates
+    if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'doctor') {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+        exit();
+    }
+
+    require_once '../dbPC.php';
+
+    // Create database connection
+    try {
+        $conn = new mysqli($servername, $username, $password, $dbname);
+        if ($conn->connect_error) {
+            throw new Exception("Connection failed: " . $conn->connect_error);
+        }
+        $conn->set_charset("utf8");
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Database connection error: ' . $e->getMessage()]);
+        exit();
+    }
+
+    if (!isset($_POST['appointment_id']) || !isset($_POST['status'])) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Missing required fields']);
+        $conn->close();
+        exit();
+    }
+
+    $appointment_id = intval($_POST['appointment_id']);
+    $status = $_POST['status'];
+    $doctor_user_id = $_SESSION['user_id'];
+
+    // Validate status
+    $allowed_statuses = ['accepted', 'rejected'];
+    if (!in_array($status, $allowed_statuses)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Invalid status']);
+        $conn->close();
+        exit();
+    }
+
+    // Verify the appointment belongs to the current doctor and has 'made' status
+    $verify_query = "SELECT id FROM appointments WHERE id = ? AND doctor_id = ? AND appointment_status = 'made'";
+    $verify_stmt = $conn->prepare($verify_query);
+    $verify_stmt->bind_param("ii", $appointment_id, $doctor_user_id);
+    $verify_stmt->execute();
+    $result = $verify_stmt->get_result();
+
+    if ($result->num_rows === 0) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'message' => 'Appointment not found, access denied, or already processed']);
+        $verify_stmt->close();
+        $conn->close();
+        exit();
+    }
+    $verify_stmt->close();
+
+    // Update appointment status
+    $update_query = "UPDATE appointments SET appointment_status = ? WHERE id = ? AND doctor_id = ? AND appointment_status = 'made'";
+    $update_stmt = $conn->prepare($update_query);
+    $update_stmt->bind_param("sii", $status, $appointment_id, $doctor_user_id);
+
+    if ($update_stmt->execute() && $update_stmt->affected_rows > 0) {
+        echo json_encode(['success' => true, 'message' => 'Appointment ' . $status . ' successfully']);
+    } else {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Failed to update appointment or appointment already processed']);
+    }
+
+    $update_stmt->close();
+    $conn->close();
+    exit();
+}
+
 // Redirect if not doctor
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'doctor') {
     header("Location: ../loginPC.html");
@@ -48,7 +128,7 @@ $accepted_stmt->execute();
 $accepted_appointments = $accepted_stmt->get_result()->fetch_assoc()['accepted'];
 
 // Get completed appointments (patients checked)
-$completed_appointments_query = "SELECT COUNT(*) as completed FROM appointments WHERE doctor_id = ? AND appointment_status = 'done'";
+$completed_appointments_query = "SELECT COUNT(*) as completed FROM appointments WHERE doctor_id = ? AND appointment_status = 'prescribed'";
 $completed_stmt = $conn->prepare($completed_appointments_query);
 $completed_stmt->bind_param("i", $doctor_id);
 $completed_stmt->execute();
@@ -73,20 +153,20 @@ $age_groups_query = "SELECT
     COUNT(*) as count
     FROM appointments a
     JOIN users u ON a.patient_id = u.id
-    WHERE a.doctor_id = ? AND a.appointment_status = 'done'
+    WHERE a.doctor_id = ? AND a.appointment_status = 'prescribed'
     GROUP BY age_group";
 $age_stmt = $conn->prepare($age_groups_query);
 $age_stmt->bind_param("i", $doctor_id);
 $age_stmt->execute();
 $age_groups = $age_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
-// Get recent appointments
+// Get recent appointments - ONLY SHOW 'made' STATUS
 $recent_appointments_query = "SELECT a.*, u.name as patient_name, u.phone 
                              FROM appointments a 
                              JOIN users u ON a.patient_id = u.id 
-                             WHERE a.doctor_id = ? 
+                             WHERE a.doctor_id = ? AND a.appointment_status = 'made'
                              ORDER BY a.created_at DESC 
-                             LIMIT 5";
+                             LIMIT 10";
 $recent_stmt = $conn->prepare($recent_appointments_query);
 $recent_stmt->bind_param("i", $doctor_id);
 $recent_stmt->execute();
@@ -354,7 +434,6 @@ $conn->close();
             gap: 10px;
         }
         
-        /* Notification Styles */
         .notification {
             position: fixed;
             top: 20px;
@@ -431,6 +510,12 @@ $conn->close();
             transform: translateY(-2px);
         }
         
+        .accept-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
         .reject-btn {
             background: var(--danger);
             color: white;
@@ -439,6 +524,12 @@ $conn->close();
         .reject-btn:hover {
             background: #dc2626;
             transform: translateY(-2px);
+        }
+        
+        .reject-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
         }
         
         .appointment-item {
@@ -485,7 +576,8 @@ $conn->close();
         
         .status-made { background: #fef3c7; color: #92400e; }
         .status-accepted { background: #dcfce7; color: #166534; }
-        .status-done { background: #e0e7ff; color: #3730a3; }
+        .status-rejected { background: #fecaca; color: #991b1b; }
+        .status-prescribed { background: #e0e7ff; color: #3730a3; }
         
         .appointment-date {
             color: var(--gray-700);
@@ -528,7 +620,6 @@ $conn->close();
             background: #475569;
         }
         
-        /* Responsive Design */
         @media (max-width: 1024px) {
             .charts-section {
                 grid-template-columns: 1fr;
@@ -583,7 +674,6 @@ $conn->close();
 </head>
 <body>
 <div class="appointment-container">
-    <!-- appointment Header -->
     <div class="appointment-header">
         <div class="welcome-section">
             <div class="welcome-text">
@@ -599,10 +689,9 @@ $conn->close();
         </div>
     </div>
 
-    <!-- Recent Appointments -->
     <div class="recent-appointments">
         <h3 class="section-title">
-            <i class="fas fa-bell"></i> Recent Appointment Requests
+            <i class="fas fa-bell"></i> Pending Appointment Requests
         </h3>
         
         <?php if (!empty($recent_appointments)): ?>
@@ -616,16 +705,7 @@ $conn->close();
                         <?php endif; ?>
                     </div>
                     <div class="appointment-meta">
-                        <span class="status-badge status-<?= $appointment['appointment_status'] ?>">
-                            <?php 
-                            $status_labels = [
-                                'made' => 'Pending',
-                                'accepted' => 'Accepted', 
-                                'done' => 'Completed'
-                            ];
-                            echo $status_labels[$appointment['appointment_status']] ?? ucfirst($appointment['appointment_status']);
-                            ?>
-                        </span>
+                        <span class="status-badge status-made">Pending</span>
                         <div class="appointment-date">
                             <i class="fas fa-calendar"></i> 
                             <?= date('M j, Y', strtotime($appointment['appointment_date'])) ?>
@@ -633,7 +713,6 @@ $conn->close();
                             <i class="fas fa-clock"></i> 
                             <?= date('g:i A', strtotime($appointment['appointment_time'])) ?>
                         </div>
-                        <?php if ($appointment['appointment_status'] === 'made'): ?>
                         <div class="appointment-actions">
                             <button class="accept-btn" onclick="acceptAppointment(<?= $appointment['id'] ?>)">
                                 <i class="fas fa-check"></i> Accept
@@ -642,20 +721,18 @@ $conn->close();
                                 <i class="fas fa-times"></i> Reject
                             </button>
                         </div>
-                        <?php endif; ?>
                     </div>
                 </div>
             <?php endforeach; ?>
         <?php else: ?>
             <div style="text-align: center; padding: 40px; color: #64748b;">
                 <i class="fas fa-calendar-check" style="font-size: 3rem; margin-bottom: 20px; opacity: 0.5;"></i>
-                <p>No recent appointments found.</p>
+                <p>No pending appointment requests.</p>
                 <p style="font-size: 0.9rem; margin-top: 10px;">New appointment requests will appear here.</p>
             </div>
         <?php endif; ?>
     </div>
 
-    <!-- Statistics Cards -->
     <div class="stats-grid">
         <div class="stat-card" style="--card-color: #3b82f6;">
             <div class="stat-header">
@@ -736,9 +813,7 @@ $conn->close();
         </div>
     </div>
 
-    <!-- Charts Section -->
     <div class="charts-section">
-        <!-- Patient Age Groups Chart -->
         <div class="chart-card">
             <div class="chart-header">
                 <h3 class="chart-title">
@@ -750,7 +825,6 @@ $conn->close();
             </div>
         </div>
 
-        <!-- Monthly Appointments Trend -->
         <div class="chart-card">
             <div class="chart-header">
                 <h3 class="chart-title">
@@ -763,7 +837,6 @@ $conn->close();
         </div>
     </div>
 
-    <!-- Quick Actions -->
     <div class="quick-actions">
         <a href="?page=appointments" class="action-btn">
             <i class="fas fa-calendar-check"></i>
@@ -874,7 +947,170 @@ const trendsChart = new Chart(document.getElementById('trendsChart'), {
     }
 });
 
-// Add smooth animations on page load
+// Accept appointment function - FIXED VERSION
+function acceptAppointment(appointmentId) {
+    if (confirm('Are you sure you want to accept this appointment?')) {
+        const appointmentItem = document.querySelector(`[data-appointment-id="${appointmentId}"]`);
+        const acceptBtn = appointmentItem.querySelector('.accept-btn');
+        const rejectBtn = appointmentItem.querySelector('.reject-btn');
+        
+        // Show loading state
+        acceptBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Accepting...';
+        acceptBtn.disabled = true;
+        rejectBtn.disabled = true;
+        
+        // Create form data for POST request
+        const formData = new FormData();
+        formData.append('action', 'update_status');
+        formData.append('appointment_id', appointmentId);
+        formData.append('status', 'accepted');
+        
+        // Send AJAX request to the same page
+        fetch(window.location.href, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            // Check if response is ok and is JSON
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            // Check content type
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                throw new Error('Server did not return JSON response');
+            }
+            
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // Remove the entire appointment item with animation
+                appointmentItem.style.transition = 'all 0.5s ease';
+                appointmentItem.style.opacity = '0';
+                appointmentItem.style.transform = 'translateX(-100%)';
+                
+                setTimeout(() => {
+                    appointmentItem.remove();
+                    showNotification('Appointment accepted successfully!', 'success');
+                    
+                    // Check if no more pending appointments
+                    const remainingItems = document.querySelectorAll('.appointment-item').length;
+                    if (remainingItems === 0) {
+                        // Refresh to show "no pending appointments" message and update stats
+                        setTimeout(() => window.location.reload(), 1000);
+                    }
+                }, 500);
+            } else {
+                showNotification('Failed to accept appointment: ' + data.message, 'error');
+                // Reset buttons
+                acceptBtn.innerHTML = '<i class="fas fa-check"></i> Accept';
+                acceptBtn.disabled = false;
+                rejectBtn.disabled = false;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('An error occurred while accepting the appointment', 'error');
+            // Reset buttons
+            acceptBtn.innerHTML = '<i class="fas fa-check"></i> Accept';
+            acceptBtn.disabled = false;
+            rejectBtn.disabled = false;
+        });
+    }
+}
+
+// Reject appointment function - FIXED VERSION
+function rejectAppointment(appointmentId) {
+    if (confirm('Are you sure you want to reject this appointment? This action cannot be undone.')) {
+        const appointmentItem = document.querySelector(`[data-appointment-id="${appointmentId}"]`);
+        const acceptBtn = appointmentItem.querySelector('.accept-btn');
+        const rejectBtn = appointmentItem.querySelector('.reject-btn');
+        
+        // Show loading state
+        rejectBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Rejecting...';
+        rejectBtn.disabled = true;
+        acceptBtn.disabled = true;
+        
+        // Create form data for POST request
+        const formData = new FormData();
+        formData.append('action', 'update_status');
+        formData.append('appointment_id', appointmentId);
+        formData.append('status', 'rejected');
+        
+        // Send AJAX request to the same page
+        fetch(window.location.href, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update the status badge
+                const statusBadge = appointmentItem.querySelector('.status-badge');
+                statusBadge.className = 'status-badge status-rejected';
+                statusBadge.textContent = 'Rejected';
+                
+                // Remove action buttons
+                const actionsDiv = appointmentItem.querySelector('.appointment-actions');
+                if (actionsDiv) {
+                    actionsDiv.remove();
+                }
+                
+                showNotification('Appointment rejected successfully!', 'success');
+                
+                // Refresh page after 2 seconds to update statistics
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            } else {
+                showNotification('Failed to reject appointment: ' + data.message, 'error');
+                // Reset buttons
+                rejectBtn.innerHTML = '<i class="fas fa-times"></i> Reject';
+                rejectBtn.disabled = false;
+                acceptBtn.disabled = false;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showNotification('An error occurred while rejecting the appointment', 'error');
+            // Reset buttons
+            rejectBtn.innerHTML = '<i class="fas fa-times"></i> Reject';
+            rejectBtn.disabled = false;
+            acceptBtn.disabled = false;
+        });
+    }
+}
+
+// Show notification function
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.innerHTML = `
+        <div class="notification-content">
+            <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+            <span>${message}</span>
+        </div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.classList.add('show');
+    }, 100);
+    
+    setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 300);
+    }, 3000);
+}
+
+// Page initialization
 document.addEventListener('DOMContentLoaded', function() {
     const cards = document.querySelectorAll('.stat-card, .chart-card, .recent-appointments');
     cards.forEach((card, index) => {
@@ -888,7 +1124,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }, index * 100);
     });
 
-    // Update time every minute
     function updateTime() {
         const now = new Date();
         const timeString = now.toLocaleString('en-US', {
@@ -900,18 +1135,15 @@ document.addEventListener('DOMContentLoaded', function() {
             minute: '2-digit'
         });
         
-        // If there's a time display element, update it
         const timeElement = document.querySelector('.current-time');
         if (timeElement) {
             timeElement.textContent = timeString;
         }
     }
 
-    // Update time initially and then every minute
     updateTime();
     setInterval(updateTime, 60000);
 
-    // Add click animation to cards
     const statCards = document.querySelectorAll('.stat-card');
     statCards.forEach(card => {
         card.addEventListener('click', function() {
@@ -923,158 +1155,11 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Function to refresh appointment data (can be called periodically)
-function refreshDashboard() {
-    console.log('Refreshing appointment data...');
-    // You can implement AJAX calls here to update data without page reload
-    location.reload(); // Simple reload for now
-}
-
-// Accept appointment function
-function acceptAppointment(appointmentId) {
-    if (confirm('Are you sure you want to accept this appointment?')) {
-        // Show loading state
-        const appointmentItem = document.querySelector(`[data-appointment-id="${appointmentId}"]`);
-        const acceptBtn = appointmentItem.querySelector('.accept-btn');
-        acceptBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Accepting...';
-        acceptBtn.disabled = true;
-        
-        // Send AJAX request
-        fetch('update_appointment_status.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                appointment_id: appointmentId,
-                status: 'accepted'
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Update the status badge
-                const statusBadge = appointmentItem.querySelector('.status-badge');
-                statusBadge.className = 'status-badge status-accepted';
-                statusBadge.textContent = 'Accepted';
-                
-                // Remove action buttons
-                const actionsDiv = appointmentItem.querySelector('.appointment-actions');
-                if (actionsDiv) {
-                    actionsDiv.remove();
-                }
-                
-                // Show success message
-                showNotification('Appointment accepted successfully!', 'success');
-                
-                // Refresh stats after 1 second
-                setTimeout(() => {
-                    location.reload();
-                }, 1000);
-            } else {
-                showNotification('Failed to accept appointment: ' + data.message, 'error');
-                // Reset button
-                acceptBtn.innerHTML = '<i class="fas fa-check"></i> Accept';
-                acceptBtn.disabled = false;
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showNotification('An error occurred while accepting the appointment', 'error');
-            // Reset button
-            acceptBtn.innerHTML = '<i class="fas fa-check"></i> Accept';
-            acceptBtn.disabled = false;
-        });
-    }
-}
-
-// Reject appointment function
-function rejectAppointment(appointmentId) {
-    if (confirm('Are you sure you want to reject this appointment? This action cannot be undone.')) {
-        // Show loading state
-        const appointmentItem = document.querySelector(`[data-appointment-id="${appointmentId}"]`);
-        const rejectBtn = appointmentItem.querySelector('.reject-btn');
-        rejectBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Rejecting...';
-        rejectBtn.disabled = true;
-        
-        // Send AJAX request
-        fetch('update_appointment_status.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                appointment_id: appointmentId,
-                status: 'rejected'
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Remove the appointment item with animation
-                appointmentItem.style.opacity = '0';
-                appointmentItem.style.transform = 'translateX(-100%)';
-                
-                setTimeout(() => {
-                    appointmentItem.remove();
-                    showNotification('Appointment rejected successfully!', 'success');
-                    
-                    // Check if no appointments left
-                    const remainingItems = document.querySelectorAll('.appointment-item').length;
-                    if (remainingItems === 0) {
-                        location.reload();
-                    }
-                }, 300);
-            } else {
-                showNotification('Failed to reject appointment: ' + data.message, 'error');
-                // Reset button
-                rejectBtn.innerHTML = '<i class="fas fa-times"></i> Reject';
-                rejectBtn.disabled = false;
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showNotification('An error occurred while rejecting the appointment', 'error');
-            // Reset button
-            rejectBtn.innerHTML = '<i class="fas fa-times"></i> Reject';
-            rejectBtn.disabled = false;
-        });
-    }
-}
-
-// Show notification function
-function showNotification(message, type = 'info') {
-    // Create notification element
-    const notification = document.createElement('div');
-    notification.className = `notification notification-${type}`;
-    notification.innerHTML = `
-        <div class="notification-content">
-            <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
-            <span>${message}</span>
-        </div>
-    `;
-    
-    // Add to page
-    document.body.appendChild(notification);
-    
-    // Show notification
-    setTimeout(() => {
-        notification.classList.add('show');
-    }, 100);
-    
-    // Remove notification after 3 seconds
-    setTimeout(() => {
-        notification.classList.remove('show');
-        setTimeout(() => {
-            if (notification.parentNode) {
-                notification.remove();
-            }
-        }, 300);
-    }, 3000);
-}
-
 // Auto-refresh every 5 minutes
-setInterval(refreshDashboard, 300000);
+setInterval(() => {
+    console.log('Auto-refreshing dashboard...');
+    window.location.reload();
+}, 300000);
 
 // Handle chart resize on window resize
 window.addEventListener('resize', function() {
@@ -1092,7 +1177,6 @@ document.addEventListener('DOMContentLoaded', function() {
     chartContainers.forEach(container => {
         container.style.position = 'relative';
         
-        // Add loading spinner
         const loadingDiv = document.createElement('div');
         loadingDiv.className = 'chart-loading';
         loadingDiv.innerHTML = `
@@ -1103,7 +1187,6 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
         container.appendChild(loadingDiv);
         
-        // Remove loading after 2 seconds
         setTimeout(() => {
             if (loadingDiv.parentNode) {
                 loadingDiv.remove();
@@ -1113,67 +1196,5 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-<!-- Embedded PHP script for update_appointment_status.php -->
-<?php
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['embedded_update'])) {
-    // This is the embedded version of update_appointment_status.php
-    session_start();
-    if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'doctor') {
-        http_response_code(403);
-        echo json_encode(['success' => false, 'message' => 'Unauthorized']);
-        exit();
-    }
-
-    // Get JSON input from embedded request
-    $input = file_get_contents('php://input');
-    $data = json_decode($input, true);
-
-    if (!isset($data['appointment_id']) || !isset($data['status'])) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'Missing required fields']);
-        exit();
-    }
-
-    $appointment_id = intval($data['appointment_id']);
-    $status = $data['status'];
-    $doctor_user_id = $_SESSION['user_id']; // This is the user_id of the doctor (from users table)
-
-    // Validate status
-    $allowed_statuses = ['accepted', 'rejected'];
-    if (!in_array($status, $allowed_statuses)) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'Invalid status']);
-        exit();
-    }
-
-    // Verify the appointment belongs to the current doctor (using doctor_user_id)
-    $verify_query = "SELECT id FROM appointments WHERE id = ? AND doctor_id = ?";
-    $verify_stmt = $conn->prepare($verify_query);
-    $verify_stmt->bind_param("ii", $appointment_id, $doctor_user_id);
-    $verify_stmt->execute();
-    $result = $verify_stmt->get_result();
-
-    if ($result->num_rows === 0) {
-        http_response_code(403);
-        echo json_encode(['success' => false, 'message' => 'Appointment not found or access denied']);
-        exit();
-    }
-
-    // Update appointment status with the same condition (to be safe)
-    $update_query = "UPDATE appointments SET appointment_status = ? WHERE id = ? AND doctor_id = ?";
-    $update_stmt = $conn->prepare($update_query);
-    $update_stmt->bind_param("sii", $status, $appointment_id, $doctor_user_id);
-
-    if ($update_stmt->execute()) {
-        echo json_encode(['success' => true, 'message' => 'Appointment ' . $status . ' successfully']);
-    } else {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Failed to update appointment']);
-    }
-
-    $conn->close();
-    exit();
-}
-?>
 </body>
 </html>

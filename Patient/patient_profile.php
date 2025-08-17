@@ -337,7 +337,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
     <div class="container">
         <div class="profile-header">
             <?php
-            $profile_pic = isset($patient['profile_picture']) ? '../uploads/profiles/' . $patient['profile_picture'] : '../assets/default-profile.png';
+            $profile_pic = isset($patient['profile_picture']) ? '../uploads/profiles/' . $patient['profile_picture'] : '..zphotos/profile_img.png';
             ?>
             <img src="<?= htmlspecialchars($profile_pic) ?>" alt="Profile Picture" class="profile-picture">
             <h1 class="profile-name"><?= htmlspecialchars($user['name']) ?></h1>

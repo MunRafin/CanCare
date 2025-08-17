@@ -49,30 +49,25 @@ $page_file = "patient_" . $page . ".php";
       font-family: 'Inter', sans-serif;
       display: flex;
       min-height: 100vh;
-      background: #f8fafc;
-      color: #1e293b;
+      background: #f8f9fa; /* A soft white background */
+      color: #212529; /* Dark text for contrast */
     }
 
     /* Sidebar Styles */
     aside.sidebar {
       width: 280px;
-      background: linear-gradient(180deg, #1e40af 0%, #1e3a8a 100%);
+      background: #f4f6f9; /* Light gray background */
       display: flex;
       flex-direction: column;
       position: relative;
-      box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
+      box-shadow: 4px 0 20px rgba(0, 0, 0, 0.05);
       transition: all 0.3s ease;
+      border-right: 1px solid #e0e7ee;
     }
 
     .sidebar::before {
       content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
-      pointer-events: none;
+      display: none; /* Hide the overlay from previous designs */
     }
 
     .sidebar-header {
@@ -80,7 +75,7 @@ $page_file = "patient_" . $page . ".php";
       display: flex;
       flex-direction: column;
       align-items: center;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
+      border-bottom: 1px solid #e0e7ee;
       position: relative;
       z-index: 2;
     }
@@ -96,7 +91,7 @@ $page_file = "patient_" . $page . ".php";
       width: 80px;
       height: 80px;
       border-radius: 50%;
-      border: 4px solid rgba(255,255,255,0.2);
+      border: 4px solid #e2e8f0;
       margin-bottom: 15px;
       object-fit: cover;
       transition: all 0.3s ease;
@@ -104,18 +99,18 @@ $page_file = "patient_" . $page . ".php";
 
     .profile-image:hover {
       transform: scale(1.05);
-      border-color: rgba(255,255,255,0.4);
+      border-color: #cbd5e1;
     }
 
     .profile-info h3 {
-      color: white;
+      color: #334155;
       font-size: 18px;
       font-weight: 600;
       margin-bottom: 5px;
     }
 
     .profile-info p {
-      color: rgba(255,255,255,0.7);
+      color: #64748b;
       font-size: 14px;
       font-weight: 400;
     }
@@ -130,17 +125,17 @@ $page_file = "patient_" . $page . ".php";
     .brand-icon {
       width: 40px;
       height: 40px;
-      background: rgba(255,255,255,0.15);
+      background: #e5e7eb;
       border-radius: 10px;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: white;
+      color: #4b5563;
       font-size: 20px;
     }
 
     .brand-text {
-      color: white;
+      color: #1f2937;
       font-size: 24px;
       font-weight: 700;
       letter-spacing: -0.5px;
@@ -158,7 +153,7 @@ $page_file = "patient_" . $page . ".php";
     }
 
     .menu-title {
-      color: rgba(255,255,255,0.6);
+      color: #94a3b8; /* Light gray for titles */
       font-size: 12px;
       font-weight: 600;
       text-transform: uppercase;
@@ -180,7 +175,7 @@ $page_file = "patient_" . $page . ".php";
       align-items: center;
       gap: 15px;
       text-decoration: none;
-      color: rgba(255,255,255,0.8);
+      color: #4b5563; /* Dark gray for readability */
       padding: 15px 20px;
       border-radius: 12px;
       transition: all 0.3s ease;
@@ -192,41 +187,28 @@ $page_file = "patient_" . $page . ".php";
 
     .sidebar-content > ul > li > a::before {
       content: '';
-      position: absolute;
-      top: 0;
-      left: -100%;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
-      transition: left 0.5s;
-    }
-
-    .sidebar-content a:hover::before {
-      left: 100%;
+      display: none;
     }
 
     .sidebar-content a:hover {
-      background: rgba(255,255,255,0.15);
-      color: white;
-      transform: translateX(5px);
+      background: #e5e7eb; /* Light gray on hover */
+      color: #1f2937;
+      transform: none; /* No movement on hover */
     }
-
+    
     .sidebar-content a.active {
-      background: rgba(255,255,255,0.2);
-      color: white;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      background: #e0f2fe; /* Soft blue background */
+      color: #2563eb; /* Blue text */
+      box-shadow: none;
     }
-
+    
+    .sidebar-content a.active .menu-icon {
+        color: #2563eb;
+    }
+    
     .sidebar-content a.active::after {
       content: '';
-      position: absolute;
-      right: 0;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 4px;
-      height: 40%;
-      background: white;
-      border-radius: 2px 0 0 2px;
+      display: none; /* Hide the accent bar */
     }
 
     .menu-icon {
@@ -236,6 +218,7 @@ $page_file = "patient_" . $page . ".php";
       align-items: center;
       justify-content: center;
       font-size: 18px;
+      color: #4b5563;
     }
 
     /* Dropdown Styles */
@@ -251,6 +234,10 @@ $page_file = "patient_" . $page . ".php";
       margin-left: auto;
       transition: transform 0.3s ease;
       font-size: 16px;
+    }
+    
+    .sidebar-content > ul > li > a.active .dropdown-arrow {
+        color: #2563eb;
     }
 
     .dropdown-parent.open .dropdown-arrow {
@@ -282,7 +269,7 @@ $page_file = "patient_" . $page . ".php";
       display: flex;
       align-items: center;
       gap: 10px;
-      color: rgba(255,255,255,0.7);
+      color: #64748b;
       padding: 12px 15px;
       border-radius: 8px;
       text-decoration: none;
@@ -297,29 +284,29 @@ $page_file = "patient_" . $page . ".php";
       width: 6px;
       height: 6px;
       border-radius: 50%;
-      background: rgba(255,255,255,0.4);
+      background: #cbd5e1;
       transition: all 0.3s ease;
     }
 
     .sidebar-content ul ul li a:hover {
-      background: rgba(255,255,255,0.1);
-      color: white;
+      background: #e5e7eb;
+      color: #1f2937;
       padding-left: 20px;
     }
 
     .sidebar-content ul ul li a:hover::before {
-      background: white;
+      background: #4b5563;
       transform: scale(1.2);
     }
 
     .sidebar-content ul ul li a.active {
-      background: rgba(255,255,255,0.15);
-      color: white;
+      background: #e0f2fe;
+      color: #2563eb;
       font-weight: 500;
     }
 
     .sidebar-content ul ul li a.active::before {
-      background: white;
+      background: #2563eb;
     }
 
     /* Main Content Wrapper */
@@ -327,7 +314,7 @@ $page_file = "patient_" . $page . ".php";
       flex: 1;
       display: flex;
       flex-direction: column;
-      background: #f8fafc;
+      background: #f8f9fa;
     }
 
     .topbar {
@@ -384,7 +371,7 @@ $page_file = "patient_" . $page . ".php";
       padding: 30px;
       flex: 1;
       overflow-y: auto;
-      background: #f8fafc;
+      background: #f8f9fa;
     }
 
     /* Mobile Toggle Button */
@@ -394,7 +381,7 @@ $page_file = "patient_" . $page . ".php";
       top: 20px;
       left: 20px;
       z-index: 1000;
-      background: #1e40af;
+      background: #3498db;
       color: white;
       border: none;
       padding: 12px;
@@ -442,6 +429,7 @@ $page_file = "patient_" . $page . ".php";
     }
 
     @media (max-width: 480px) {
+    
       .topbar {
         flex-direction: column;
         gap: 15px;
@@ -476,7 +464,7 @@ $page_file = "patient_" . $page . ".php";
       width: 40px;
       height: 40px;
       border: 4px solid #e2e8f0;
-      border-top: 4px solid #1e40af;
+      border-top: 4px solid #3498db; /* Spinner color to match theme */
       border-radius: 50%;
       animation: spin 1s linear infinite;
     }
@@ -492,32 +480,29 @@ $page_file = "patient_" . $page . ".php";
     }
 
     .sidebar-content::-webkit-scrollbar-track {
-      background: rgba(255,255,255,0.1);
+      background: #e0e7ee;
       border-radius: 3px;
     }
 
     .sidebar-content::-webkit-scrollbar-thumb {
-      background: rgba(255,255,255,0.3);
+      background: #cbd5e1;
       border-radius: 3px;
     }
 
     .sidebar-content::-webkit-scrollbar-thumb:hover {
-      background: rgba(255,255,255,0.5);
+      background: #94a3b8;
     }
   </style>
 </head>
 <body>
-  <!-- Mobile Toggle Button -->
   <button class="mobile-toggle" onclick="toggleMobileSidebar()">
     <i class="fas fa-bars"></i>
   </button>
 
-  <!-- Loading Overlay -->
   <div class="loading-overlay" id="loadingOverlay">
     <div class="loading-spinner"></div>
   </div>
 
-  <!-- Sidebar -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
       <div class="sidebar-brand">
@@ -587,7 +572,6 @@ $page_file = "patient_" . $page . ".php";
             </a>
           </li>
           
-          <!-- Records Dropdown -->
           <li id="recordsMenu" class="dropdown-parent <?= in_array($page, ['foodlog', 'excerciselog', 'medicinelog', 'records']) ? 'open' : '' ?>">
             <a onclick="toggleDropdown('recordsDropdown')" class="dropdown-toggle" style="cursor:pointer;">
               <div class="menu-icon"><i class="fas fa-folder-open"></i></div>
@@ -630,9 +614,7 @@ $page_file = "patient_" . $page . ".php";
     </div>
   </aside>
 
-  <!-- Main Content -->
   <div class="main-wrapper">
-    <!-- Top Bar -->
     <div class="topbar">
       <div class="topbar-left">
         <div class="page-title">

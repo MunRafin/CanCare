@@ -11,40 +11,107 @@ $user_id = $_SESSION['user_id'];
 
 // Handle AJAX appointment booking request
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'book_appointment') {
-    $doctor_id = intval($_POST['doctor_id']);
-    $date = $_POST['date'];    // format: YYYY-MM-DD
-    $time = $_POST['time'];    // format: HH:MM:SS
-    $symptoms = $_POST['symptoms'] ?? null;
+    // Set content type to JSON immediately to prevent browser parsing issues
+    header('Content-Type: application/json');
+    
+    try {
+        $doctor_id = intval($_POST['doctor_id']);
+        $date = $_POST['date'];    // format: YYYY-MM-DD
+        $time = $_POST['time'];    // format: HH:MM:SS
+        $symptoms = $_POST['symptoms'] ?? null;
 
-    $hour_start = substr($time, 0, 2) . ':00:00';
-    $hour_end = substr($time, 0, 2) . ':59:59';
+        // Validate inputs
+        if (empty($doctor_id) || empty($date) || empty($time)) {
+            throw new Exception('Please fill in all required fields.');
+        }
 
-    // Check if the time slot is fully booked (up to 10 appointments per hour)
-    $stmt = $conn->prepare("SELECT COUNT(*) FROM appointments WHERE doctor_id = ? AND appointment_date = ? AND appointment_time BETWEEN ? AND ?");
-    $stmt->execute([$doctor_id, $date, $hour_start, $hour_end]);
-    $count = $stmt->fetchColumn();
+        // Validate date format
+        if (!DateTime::createFromFormat('Y-m-d', $date)) {
+            throw new Exception('Invalid date format.');
+        }
 
-    if ($count >= 10) {
-        echo json_encode(['status' => 'error', 'message' => 'This time slot is fully booked. Please choose another time.']);
-        exit;
-    }
+        // Validate time format
+        if (!DateTime::createFromFormat('H:i:s', $time)) {
+            throw new Exception('Invalid time format.');
+        }
 
-    // Check if the patient already has an appointment at this specific time
-    $stmt = $conn->prepare("SELECT COUNT(*) FROM appointments WHERE patient_id = ? AND appointment_date = ? AND appointment_time = ?");
-    $stmt->execute([$user_id, $date, $time]);
-    if ($stmt->fetchColumn() > 0) {
-        echo json_encode(['status' => 'error', 'message' => 'You already have an appointment at this time.']);
-        exit;
-    }
+        // Check if date is not in the past
+        $selectedDate = new DateTime($date);
+        $today = new DateTime('today');
+        if ($selectedDate < $today) {
+            throw new Exception('Cannot book appointments for past dates.');
+        }
 
-    // Insert the new appointment
-    $stmt = $conn->prepare("INSERT INTO appointments (patient_id, doctor_id, appointment_date, appointment_time, symptoms, appointment_status, created_at) VALUES (?, ?, ?, ?, ?, 'made', NOW())");
-    $result = $stmt->execute([$user_id, $doctor_id, $date, $time, $symptoms]);
+        // Check if doctor exists
+        $stmt = $conn->prepare("SELECT COUNT(*) FROM users u JOIN doctors d ON u.id = d.user_id WHERE u.id = ? AND u.role = 'doctor'");
+        $stmt->execute([$doctor_id]);
+        if ($stmt->fetchColumn() == 0) {
+            throw new Exception('Selected doctor not found.');
+        }
 
-    if ($result) {
-        echo json_encode(['status' => 'success', 'message' => 'Appointment booked successfully.']);
-    } else {
-        echo json_encode(['status' => 'error', 'message' => 'Failed to book appointment. Please try again.']);
+        $hour_start = substr($time, 0, 2) . ':00:00';
+        $hour_end = substr($time, 0, 2) . ':59:59';
+
+        // Check if the time slot is fully booked (up to 10 appointments per hour)
+        $stmt = $conn->prepare("SELECT COUNT(*) FROM appointments WHERE doctor_id = ? AND appointment_date = ? AND appointment_time BETWEEN ? AND ?");
+        $stmt->execute([$doctor_id, $date, $hour_start, $hour_end]);
+        $count = $stmt->fetchColumn();
+
+        if ($count >= 10) {
+            throw new Exception('This time slot is fully booked. Please choose another time.');
+        }
+
+        // Check if the patient already has an appointment at this specific time
+        $stmt = $conn->prepare("SELECT COUNT(*) FROM appointments WHERE patient_id = ? AND appointment_date = ? AND appointment_time = ?");
+        $stmt->execute([$user_id, $date, $time]);
+        if ($stmt->fetchColumn() > 0) {
+            throw new Exception('You already have an appointment at this time.');
+        }
+
+        // Check if patient has another appointment with the same doctor on the same date
+        $stmt = $conn->prepare("SELECT COUNT(*) FROM appointments WHERE patient_id = ? AND doctor_id = ? AND appointment_date = ?");
+        $stmt->execute([$user_id, $doctor_id, $date]);
+        if ($stmt->fetchColumn() > 0) {
+            throw new Exception('You already have an appointment with this doctor on this date.');
+        }
+
+        // Begin transaction
+        $conn->beginTransaction();
+
+        // Insert the new appointment using the correct column names from your table
+        $stmt = $conn->prepare("INSERT INTO appointments (patient_id, doctor_id, appointment_date, appointment_time, symptoms, appointment_status, created_at) VALUES (?, ?, ?, ?, ?, 'made', NOW())");
+        $result = $stmt->execute([$user_id, $doctor_id, $date, $time, $symptoms]);
+
+        if (!$result) {
+            throw new Exception('Failed to insert appointment into database.');
+        }
+
+        // Commit transaction
+        $conn->commit();
+
+        // Get doctor name for confirmation
+        $stmt = $conn->prepare("SELECT name FROM users WHERE id = ?");
+        $stmt->execute([$doctor_id]);
+        $doctorName = $stmt->fetchColumn();
+
+        echo json_encode([
+            'status' => 'success', 
+            'message' => "Appointment booked successfully with Dr. " . htmlspecialchars($doctorName)
+        ]);
+
+    } catch (Exception $e) {
+        // Rollback transaction if it was started
+        if ($conn->inTransaction()) {
+            $conn->rollback();
+        }
+        
+        // Use a single, clear error log entry
+        error_log("Appointment booking error: " . $e->getMessage() . " | Patient ID: " . (isset($user_id) ? $user_id : 'N/A') . " | Doctor ID: " . (isset($doctor_id) ? $doctor_id : 'N/A'));
+
+        echo json_encode([
+            'status' => 'error', 
+            'message' => $e->getMessage()
+        ]);
     }
     exit;
 }
@@ -373,13 +440,19 @@ $maxDate = (new DateTime('today'))->modify("+$maxDays days")->format('Y-m-d');
             left: 100%;
         }
 
-        .book-btn:hover {
+        .book-btn:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 8px 25px rgba(105, 92, 254, 0.4);
         }
 
-        .book-btn:active {
+        .book-btn:active:not(:disabled) {
             transform: translateY(0);
+        }
+
+        .book-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
         }
 
         .message {
@@ -389,15 +462,16 @@ $maxDate = (new DateTime('today'))->modify("+$maxDays days")->format('Y-m-d');
             font-weight: 600;
             text-align: center;
             font-size: 0.85rem;
+            display: none;
         }
 
-        .success {
+        .message.success {
             background: #D1FAE5;
             color: #065F46;
             border: 1px solid #A7F3D0;
         }
 
-        .error {
+        .message.error {
             background: #FEE2E2;
             color: #991B1B;
             border: 1px solid #FECACA;
@@ -432,6 +506,28 @@ $maxDate = (new DateTime('today'))->modify("+$maxDays days")->format('Y-m-d');
             font-size: 1.5rem;
             margin-bottom: 10px;
             color: #333;
+        }
+
+        /* Loading state for buttons */
+        .loading {
+            position: relative;
+        }
+
+        .loading::after {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            margin: auto;
+            border: 2px solid transparent;
+            border-top-color: #ffffff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
         /* Responsive Design */
@@ -582,35 +678,37 @@ $maxDate = (new DateTime('today'))->modify("+$maxDays days")->format('Y-m-d');
                 </div>
 
                 <div class="appointment-section">
-                    <div class="form-group">
-                        <label for="date-<?= $doc['user_id'] ?>">
-                            <i class="fas fa-calendar"></i> Select Date:
-                        </label>
-                        <input type="date" id="date-<?= $doc['user_id'] ?>" name="date" 
-                               min="<?= $todayStr ?>" max="<?= $maxDate ?>" class="form-control">
-                    </div>
+                    <form class="appointment-form" data-doctor-id="<?= $doc['user_id'] ?>">
+                        <div class="form-group">
+                            <label for="date-<?= $doc['user_id'] ?>">
+                                <i class="fas fa-calendar"></i> Select Date:
+                            </label>
+                            <input type="date" id="date-<?= $doc['user_id'] ?>" name="date" 
+                                   min="<?= $todayStr ?>" max="<?= $maxDate ?>" class="form-control" required>
+                        </div>
 
-                    <div class="form-group">
-                        <label for="time-<?= $doc['user_id'] ?>">
-                            <i class="fas fa-clock"></i> Select Time:
-                        </label>
-                        <select id="time-<?= $doc['user_id'] ?>" name="time" class="form-control">
-                            <option value="">--Select time--</option>
-                        </select>
-                    </div>
+                        <div class="form-group">
+                            <label for="time-<?= $doc['user_id'] ?>">
+                                <i class="fas fa-clock"></i> Select Time:
+                            </label>
+                            <select id="time-<?= $doc['user_id'] ?>" name="time" class="form-control" required>
+                                <option value="">--Select time--</option>
+                            </select>
+                        </div>
 
-                    <div class="form-group">
-                        <label for="symptoms-<?= $doc['user_id'] ?>">
-                            <i class="fas fa-notes-medical"></i> Symptoms (optional):
-                        </label>
-                        <textarea id="symptoms-<?= $doc['user_id'] ?>" name="symptoms" 
-                                 class="form-control" placeholder="Describe your symptoms..."></textarea>
-                    </div>
+                        <div class="form-group">
+                            <label for="symptoms-<?= $doc['user_id'] ?>">
+                                <i class="fas fa-notes-medical"></i> Symptoms (optional):
+                            </label>
+                            <textarea id="symptoms-<?= $doc['user_id'] ?>" name="symptoms" 
+                                     class="form-control" placeholder="Describe your symptoms..." maxlength="500"></textarea>
+                        </div>
 
-                    <button class="book-btn" onclick="bookAppointment(<?= $doc['user_id'] ?>, event)">
-                        <i class="fas fa-calendar-plus"></i> Book Appointment
-                    </button>
-                    <div id="message-<?= $doc['user_id'] ?>" class="message" style="display: none;"></div>
+                        <button type="button" class="book-btn" onclick="bookAppointment(<?= $doc['user_id'] ?>, this)">
+                            <i class="fas fa-calendar-plus"></i> Book Appointment
+                        </button>
+                        <div id="message-<?= $doc['user_id'] ?>" class="message"></div>
+                    </form>
                 </div>
             </div>
             <?php endforeach; ?>
@@ -640,98 +738,116 @@ $maxDate = (new DateTime('today'))->modify("+$maxDays days")->format('Y-m-d');
             const selectedDateStr = dateInput.value;
             
             // Clear existing options
-            timeSelect.innerHTML = '<option value="">Select a time</option>';
+            timeSelect.innerHTML = '<option value="">--Select time--</option>';
             
             if (!selectedDateStr) return;
 
-            // Parse service time range (e.g., "09:00 AM - 12:00 PM")
-            const [startTimeStr, endTimeStr] = serviceTime.split('-').map(s => s.trim());
-            
-            // Convert to 24-hour format
-            const startTime = parseTime12to24(startTimeStr);
-            const endTime = parseTime12to24(endTimeStr);
-            
-            // Extract hours
-            const startHour = parseInt(startTime.split(':')[0], 10);
-            const endHour = parseInt(endTime.split(':')[0], 10);
-            
-            // Generate time slots (one per hour)
-            for (let h = startHour; h < endHour; h++) {
-                const hourStr = (h < 10 ? '0' : '') + h + ':00:00';
-                const displayHour = h % 12 === 0 ? 12 : h % 12;
-                const ampm = h >= 12 ? 'PM' : 'AM';
+            try {
+                // Parse service time range (e.g., "09:00 AM - 12:00 PM")
+                const [startTimeStr, endTimeStr] = serviceTime.split('-').map(s => s.trim());
                 
-                const option = document.createElement('option');
-                option.value = hourStr;
-                option.textContent = `${displayHour}:00 ${ampm}`;
-                timeSelect.appendChild(option);
+                // Convert to 24-hour format
+                const startTime = parseTime12to24(startTimeStr);
+                const endTime = parseTime12to24(endTimeStr);
+                
+                // Extract hours
+                const startHour = parseInt(startTime.split(':')[0], 10);
+                const endHour = parseInt(endTime.split(':')[0], 10);
+                
+                // Generate time slots (one per hour)
+                for (let h = startHour; h < endHour; h++) {
+                    const hourStr = (h < 10 ? '0' : '') + h + ':00:00';
+                    const displayHour = h % 12 === 0 ? 12 : h % 12;
+                    const ampm = h >= 12 ? 'PM' : 'AM';
+                    
+                    const option = document.createElement('option');
+                    option.value = hourStr;
+                    option.textContent = `${displayHour}:00 ${ampm}`;
+                    timeSelect.appendChild(option);
+                }
+            } catch (error) {
+                console.error('Error parsing service time:', error);
+                showMessage(doctorId, 'Error loading time slots. Please refresh the page.', 'error');
             }
         }
 
-        function bookAppointment(doctorId, event) {
+        function bookAppointment(doctorId, buttonElement) {
+            const form = buttonElement.closest('.appointment-form');
             const dateInput = document.getElementById(`date-${doctorId}`);
             const timeSelect = document.getElementById(`time-${doctorId}`);
             const symptomsInput = document.getElementById(`symptoms-${doctorId}`);
-            const messageElem = document.getElementById(`message-${doctorId}`);
 
+            // Validate inputs
             if (!dateInput.value) {
-                showMessage(messageElem, "Please select an appointment date.", "error");
+                showMessage(doctorId, "Please select an appointment date.", "error");
+                dateInput.focus();
                 return;
             }
             if (!timeSelect.value) {
-                showMessage(messageElem, "Please select an appointment time.", "error");
+                showMessage(doctorId, "Please select an appointment time.", "error");
+                timeSelect.focus();
                 return;
             }
 
-            const confirmed = confirm(`Confirm appointment with Doctor on ${dateInput.value} at ${timeSelect.options[timeSelect.selectedIndex].text}?`);
+            // Confirm appointment
+            const selectedTime = timeSelect.options[timeSelect.selectedIndex].text;
+            const selectedDate = new Date(dateInput.value).toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+            
+            const confirmed = confirm(`Confirm appointment for ${selectedDate} at ${selectedTime}?`);
             if (!confirmed) return;
 
             // Show loading state
-            const bookBtn = event.target.closest('.book-btn');
-            const originalText = bookBtn.innerHTML;
-            bookBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Booking...';
-            bookBtn.disabled = true;
+            const originalText = buttonElement.innerHTML;
+            buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Booking...';
+            buttonElement.disabled = true;
 
-            const xhr = new XMLHttpRequest();
-            xhr.open("POST", "", true);
-            xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-            const symptoms = encodeURIComponent(symptomsInput.value || '');
-            
-            xhr.onload = function() {
-                bookBtn.innerHTML = originalText;
-                bookBtn.disabled = false;
-                
-                if (xhr.status === 200) {
-                    try {
-                        const res = JSON.parse(xhr.responseText);
-                        showMessage(messageElem, res.message, res.status);
-                        
-                        if (res.status === 'success') {
-                            // Reset form on success
-                            dateInput.value = '';
-                            timeSelect.innerHTML = '<option value="">--Select time--</option>';
-                            symptomsInput.value = '';
-                        }
-                    } catch (e) {
-                        console.error('JSON parsing error:', e);
-                        console.error('Response text:', xhr.responseText);
-                        showMessage(messageElem, "Error processing server response.", "error");
-                    }
-                } else {
-                    showMessage(messageElem, "Server error. Please try again.", "error");
+            // Prepare form data
+            const formData = new FormData();
+            formData.append('action', 'book_appointment');
+            formData.append('doctor_id', doctorId);
+            formData.append('date', dateInput.value);
+            formData.append('time', timeSelect.value);
+            formData.append('symptoms', symptomsInput.value || '');
+
+            // Send request
+            fetch(window.location.href, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
-            };
-            
-            xhr.onerror = function() {
-                bookBtn.innerHTML = originalText;
-                bookBtn.disabled = false;
-                showMessage(messageElem, "Network error. Please try again.", "error");
-            };
-            
-            xhr.send(`action=book_appointment&doctor_id=${doctorId}&date=${dateInput.value}&time=${timeSelect.value}&symptoms=${symptoms}`);
+                return response.json();
+            })
+            .then(data => {
+                showMessage(doctorId, data.message, data.status);
+                
+                if (data.status === 'success') {
+                    // Reset form on success
+                    dateInput.value = '';
+                    timeSelect.innerHTML = '<option value="">--Select time--</option>';
+                    symptomsInput.value = '';
+                }
+            })
+            .catch(error => {
+                console.error('Booking error:', error);
+                showMessage(doctorId, 'Network error. Please check your connection and try again.', 'error');
+            })
+            .finally(() => {
+                // Reset button state
+                buttonElement.innerHTML = originalText;
+                buttonElement.disabled = false;
+            });
         }
 
-        function showMessage(messageElem, text, type) {
+        function showMessage(doctorId, text, type) {
+            const messageElem = document.getElementById(`message-${doctorId}`);
             messageElem.textContent = text;
             messageElem.className = `message ${type}`;
             messageElem.style.display = 'block';
@@ -742,10 +858,14 @@ $maxDate = (new DateTime('today'))->modify("+$maxDays days")->format('Y-m-d');
                     messageElem.style.display = 'none';
                 }, 5000);
             }
+            
+            // Scroll to message
+            messageElem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
 
-        // Initialize event listeners for date changes
+        // Initialize event listeners when DOM is ready
         document.addEventListener('DOMContentLoaded', function() {
+            // Add event listeners for date changes
             document.querySelectorAll('input[type="date"]').forEach(dateInput => {
                 dateInput.addEventListener('change', function() {
                     const doctorId = this.id.split('-')[1];
@@ -754,7 +874,47 @@ $maxDate = (new DateTime('today'))->modify("+$maxDays days")->format('Y-m-d');
                     updateTimeSlots(doctorId, serviceTime, this.id, `time-${doctorId}`);
                 });
             });
+
+            // Add input validation
+            document.querySelectorAll('textarea[name="symptoms"]').forEach(textarea => {
+                const maxLength = parseInt(textarea.getAttribute('maxlength'));
+                if (maxLength) {
+                    textarea.addEventListener('input', function() {
+                        if (this.value.length > maxLength) {
+                            this.value = this.value.substring(0, maxLength);
+                        }
+                    });
+                }
+            });
+
+            // Prevent form submission on Enter key in textarea
+            document.querySelectorAll('textarea').forEach(textarea => {
+                textarea.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                    }
+                });
+            });
+
+            // Set minimum date to today
+            const today = new Date().toISOString().split('T')[0];
+            document.querySelectorAll('input[type="date"]').forEach(dateInput => {
+                if (!dateInput.getAttribute('min')) {
+                    dateInput.setAttribute('min', today);
+                }
+            });
         });
+
+        // Add error handling for image loading
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.doctor-image').forEach(img => {
+                img.addEventListener('error', function() {
+                    this.src = '../zphotos/doctor.png';
+                });
+            });
+        });
+
+        // Prevent double-clicking on book buttons
     </script>
 </body>
 </html>

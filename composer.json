@@ -1,8 +1,10 @@
 {
-    "repositories": [
+    "name": "mun.rafin/can-care",
+    "authors": [
         {
-            "type": "vcs",
-            "url": "https://github.com/MunRafin/CanCare.git"
+            "name": "Muntasir Rafin",
+            "email": "mun.rafin@gmail.com"
         }
-    ]
+    ],
+    "require": {}
 }

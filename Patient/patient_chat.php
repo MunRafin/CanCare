@@ -118,7 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['message'])) {
 // Function to generate responses using Gemini API
 function generateGeminiResponse($message, $patientName = 'there', $patientContext = '') {
     $apiKey = 'AIzaSyCwgkQ10ECAhiJDoCT8LYxiV_rPGOQ80Lw';
-    $apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=' . $apiKey;
+    $apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=' . $apiKey;
     
     // Create the system prompt with patient context
     $systemPrompt = "You are a helpful AI health assistant for a medical platform called PersoCare. Your role is to provide general health information, wellness tips, and supportive guidance to patients.
@@ -136,7 +136,7 @@ PATIENT INFORMATION:
 
 Patient's Question: " . $message;
 
-    // Prepare the request data for Gemini API (simplified structure)
+    // Prepare the request data for Gemini API
     $requestData = [
         'contents' => [
             [
@@ -145,6 +145,30 @@ Patient's Question: " . $message;
                         'text' => $systemPrompt
                     ]
                 ]
+            ]
+        ],
+        'generationConfig' => [
+            'temperature' => 0.7,
+            'topK' => 40,
+            'topP' => 0.95,
+            'maxOutputTokens' => 500,
+        ],
+        'safetySettings' => [
+            [
+                'category' => 'HARM_CATEGORY_HARASSMENT',
+                'threshold' => 'BLOCK_MEDIUM_AND_ABOVE'
+            ],
+            [
+                'category' => 'HARM_CATEGORY_HATE_SPEECH',
+                'threshold' => 'BLOCK_MEDIUM_AND_ABOVE'
+            ],
+            [
+                'category' => 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+                'threshold' => 'BLOCK_MEDIUM_AND_ABOVE'
+            ],
+            [
+                'category' => 'HARM_CATEGORY_DANGEROUS_CONTENT',
+                'threshold' => 'BLOCK_MEDIUM_AND_ABOVE'
             ]
         ]
     ];
@@ -161,18 +185,13 @@ Patient's Question: " . $message;
         CURLOPT_POSTFIELDS => json_encode($requestData),
         CURLOPT_TIMEOUT => 30,
         CURLOPT_CONNECTTIMEOUT => 10,
-        CURLOPT_SSL_VERIFYPEER => false, // Sometimes SSL issues cause problems
-        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_SSL_VERIFYPEER => true,
     ]);
     
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $error = curl_error($ch);
     curl_close($ch);
-    
-    // Debug logging - you can check your server logs
-    error_log("Gemini API Response Code: " . $httpCode);
-    error_log("Gemini API Response: " . $response);
     
     // Handle cURL errors
     if ($error) {
@@ -190,34 +209,16 @@ Patient's Question: " . $message;
     $responseData = json_decode($response, true);
     
     if (json_last_error() !== JSON_ERROR_NONE) {
-        error_log("JSON Parse Error: " . json_last_error_msg() . " - Response: " . $response);
+        error_log("JSON Parse Error: " . json_last_error_msg());
         return getFallbackResponse($message, $patientName);
     }
     
-    // Try multiple possible response structures
-    $generatedText = null;
-    
-    // Structure 1: candidates[0].content.parts[0].text
+    // Extract the generated text
     if (isset($responseData['candidates'][0]['content']['parts'][0]['text'])) {
         $generatedText = $responseData['candidates'][0]['content']['parts'][0]['text'];
-    }
-    // Structure 2: candidates[0].output.content (alternative structure)
-    elseif (isset($responseData['candidates'][0]['output']['content'])) {
-        $generatedText = $responseData['candidates'][0]['output']['content'];
-    }
-    // Structure 3: choices[0].message.content (OpenAI-like structure)
-    elseif (isset($responseData['choices'][0]['message']['content'])) {
-        $generatedText = $responseData['choices'][0]['message']['content'];
-    }
-    // Structure 4: text field directly
-    elseif (isset($responseData['text'])) {
-        $generatedText = $responseData['text'];
-    }
-    
-    if ($generatedText) {
         return trim($generatedText);
     } else {
-        error_log("Unexpected API response structure: " . json_encode($responseData));
+        error_log("Unexpected API response structure: " . $response);
         return getFallbackResponse($message, $patientName);
     }
 }
