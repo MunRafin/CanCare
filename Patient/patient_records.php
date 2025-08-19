@@ -57,7 +57,7 @@ $exerciseLogs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>CanCare | Patient Records</title>
+    <title>PersoCare | Patient Records</title>
     <style>
         body { font-family: Arial; padding: 20px; background: #f2f4f8; }
         table { border-collapse: collapse; width: 100%; margin-bottom: 30px; background: white; }

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CanCare - Your Personal Health Companion</title>
+    <title>PersoCare - Your Personal Health Companion</title>
     <style>
         :root {
             --primary-color: #695CFE;
@@ -345,8 +345,8 @@
         <div class="container">
             <nav>
                 <div class="logo">
-                    <img src="zphotos/logo.png" alt="CanCare Logo">
-                    <h1>CanCare</h1>
+                    <img src="zphotos/logo.png" alt="PersoCare Logo">
+                    <h1>PersoCare</h1>
                 </div>
                 <ul class="nav-links">
                     <li><a href="#features">Features</a></li>
@@ -365,13 +365,13 @@
     <section class="hero">
         <div class="container">
             <h2>Your Personal Health Companion</h2>
-            <p>Track your health metrics, manage appointments, and stay on top of your wellness journey with CanCare's comprehensive health management platform.</p>
+            <p>Track your health metrics, manage appointments, and stay on top of your wellness journey with PersoCare's comprehensive health management platform.</p>
             <div class="hero-buttons">
                 <a href="registerPC.html" class="btn-cta">Get Started</a>
                 <a href="#features" class="btn btn-login" style="margin-left: 15px;">Learn More</a>
             </div>
             <div class="hero-image">
-                <img src="zphotos/app-dashboard.png" alt="CanCare Dashboard">
+                <img src="zphotos/app-dashboard.png" alt="PersoCare Dashboard">
             </div>
         </div>
     </section>
@@ -434,7 +434,7 @@
     <section class="cta">
         <div class="container">
             <h3>Ready to take control of your health?</h3>
-            <p>Join thousands of users who are already managing their health with CanCare.</p>
+            <p>Join thousands of users who are already managing their health with PersoCare.</p>
             <a href="registerPC.html" class="btn-cta">Create Your Free Account</a>
         </div>
     </section>
@@ -444,7 +444,7 @@
         <div class="container">
             <div class="footer-content">
                 <div class="footer-column">
-                    <h4>CanCare</h4>
+                    <h4>PersoCare</h4>
                     <p>Your personal health companion for tracking and managing all aspects of your wellness journey.</p>
                 </div>
                 <div class="footer-column">
@@ -453,8 +453,8 @@
                         <li><a href="#features">Features</a></li>
                         <li><a href="#about">About Us</a></li>
                         <li><a href="#contact">Contact</a></li>
-                        <li><a href="CanCare/loginPC.html">Login</a></li>
-                        <li><a href="CanCare/registerPC.html">Register</a></li>
+                        <li><a href="PersoCare/loginPC.html">Login</a></li>
+                        <li><a href="PersoCare/registerPC.html">Register</a></li>
                     </ul>
                 </div>
                 <div class="footer-column">
@@ -469,14 +469,14 @@
                 <div class="footer-column">
                     <h4>Contact Us</h4>
                     <ul>
-                        <li>Email: info@cancare.com</li>
+                        <li>Email: info@PersoCare.com</li>
                         <li>Phone: +1 (123) 456-7890</li>
                         <li>Address: 123 Health St, Wellness City</li>
                     </ul>
                 </div>
             </div>
             <div class="copyright">
-                <p>&copy; 2023 CanCare. All rights reserved.</p>
+                <p>&copy; 2023 PersoCare. All rights reserved.</p>
             </div>
         </div>
     </footer>

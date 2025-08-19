@@ -228,7 +228,7 @@ try {
         <a href="javascript:window.print()" class="btn-print"><i class="fas fa-print"></i> Print Report</a>
         
         <header class="report-header">
-            <h1>CanCare Medical Prescription</h1>
+            <h1>PersoCare Medical Prescription</h1>
             <p>Prescription issued on: <?php echo htmlspecialchars(date('F d, Y', strtotime($prescription['prescribed_at']))); ?></p>
         </header>
 
@@ -318,7 +318,7 @@ try {
         <?php endif; ?>
 
         <footer class="footer">
-            <p>&copy; <?php echo date("Y"); ?> CanCare. All rights reserved.</p>
+            <p>&copy; <?php echo date("Y"); ?> PersoCare. All rights reserved.</p>
             <p>This is a digital copy of your prescription. Please consult your doctor for any clarifications.</p>
         </footer>
     </div>
