@@ -95,7 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Profile | PersoCare</title>
+    <title>My Profile | CanCare</title>
     <style>
         :root {
             --primary-color: #695CFE;

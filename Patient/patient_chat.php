@@ -121,7 +121,7 @@ function generateGeminiResponse($message, $patientName = 'there', $patientContex
     $apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=' . $apiKey;
     
     // Create the system prompt with patient context
-    $systemPrompt = "You are a helpful AI health assistant for a medical platform called PersoCare. Your role is to provide general health information, wellness tips, and supportive guidance to patients.
+    $systemPrompt = "You are a helpful AI health assistant for a medical platform called CanCare. Your role is to provide general health information, wellness tips, and supportive guidance to patients.
 
 IMPORTANT GUIDELINES:
 - Always provide helpful, accurate general health information
@@ -307,7 +307,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PersoCare Chat - AI Health Assistant</title>
+    <title>CanCare Chat - AI Health Assistant</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         * {
@@ -649,7 +649,7 @@ try {
         <div class="chat-header">
             <div class="chat-title">
                 <i class="fas fa-robot"></i>
-                PersoCare AI
+                CanCare AI
             </div>
             <div class="chat-subtitle">
                 <span class="status-indicator"></span>

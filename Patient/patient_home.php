@@ -32,7 +32,7 @@ $page_file = "patient_" . $page . ".php";
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>PersoCare | Patient Panel</title>
+  <title>CanCare | Patient Panel</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
   <style>
@@ -508,7 +508,7 @@ $page_file = "patient_" . $page . ".php";
         <div class="brand-icon">
           <i class="fas fa-heart-pulse"></i>
         </div>
-        <div class="brand-text">PersoCare</div>
+        <div class="brand-text">CanCare</div>
       </div>
       
       <div class="profile-section">
@@ -876,6 +876,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatBody = document.getElementById('ai-chat-body');
     const chatInput = document.getElementById('ai-chat-input');
     const sendBtn = document.getElementById('ai-send-btn');
+    const fileInput = document.getElementById('ai-file-input');
+    const voiceBtn = document.getElementById('ai-voice-btn');
+
+    // Increase chat window size
+    chatWindow.style.width = '500px';
+    chatWindow.style.height = '600px';
 
     chatBubble.addEventListener('click', () => {
         chatWindow.style.display = 'flex';
@@ -890,8 +896,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     sendBtn.addEventListener('click', sendMessage);
     chatInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            sendMessage();
+        if (e.key === 'Enter') sendMessage();
+    });
+
+    fileInput.addEventListener('change', handleFileUpload);
+
+    // Voice recording setup
+    let mediaRecorder;
+    let audioChunks = [];
+    voiceBtn.addEventListener('click', async () => {
+        if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            
+            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+            mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                audioChunks = [];
+                sendFile(audioBlob, 'voice_message.wav');
+            };
+            
+            mediaRecorder.start();
+            voiceBtn.textContent = 'Stop Recording';
+        } else if (mediaRecorder.state === 'recording') {
+            mediaRecorder.stop();
+            voiceBtn.textContent = '🎤 Record Voice';
         }
     });
 
@@ -899,21 +928,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const message = chatInput.value.trim();
         if (!message) return;
 
-        // Display user message
-        const userMsgDiv = document.createElement('div');
-        userMsgDiv.className = 'ai-chat-message user-message';
-        userMsgDiv.textContent = message;
-        chatBody.appendChild(userMsgDiv);
+        displayUserMessage(message);
         chatInput.value = '';
-        chatBody.scrollTop = chatBody.scrollHeight;
 
-        // Display a loading indicator
-        const loadingDiv = document.createElement('div');
-        loadingDiv.className = 'ai-chat-message bot-message';
-        loadingDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-        chatBody.appendChild(loadingDiv);
-        chatBody.scrollTop = chatBody.scrollHeight;
-
+        const loadingDiv = displayLoading();
         try {
             const response = await fetch('../ai_chat_handler.php', {
                 method: 'POST',
@@ -921,25 +939,66 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: `message=${encodeURIComponent(message)}`
             });
             const data = await response.json();
-            
-            chatBody.removeChild(loadingDiv);
-            
-            const botMsgDiv = document.createElement('div');
-            botMsgDiv.className = 'ai-chat-message bot-message';
-            botMsgDiv.textContent = data.response || data.error || "An unexpected error occurred.";
-            chatBody.appendChild(botMsgDiv);
-
+            displayBotMessage(data.response || data.error || "An unexpected error occurred.", loadingDiv);
         } catch (error) {
-            chatBody.removeChild(loadingDiv);
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'ai-chat-message bot-message';
-            errorDiv.textContent = "Failed to connect to the assistant. Please try again.";
-            chatBody.appendChild(errorDiv);
+            displayBotMessage("Failed to connect to the assistant. Please try again.", loadingDiv);
         }
+    }
 
+    function displayUserMessage(msg) {
+        const userMsgDiv = document.createElement('div');
+        userMsgDiv.className = 'ai-chat-message user-message';
+        userMsgDiv.textContent = msg;
+        chatBody.appendChild(userMsgDiv);
         chatBody.scrollTop = chatBody.scrollHeight;
+    }
+
+    function displayLoading() {
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'ai-chat-message bot-message';
+        loadingDiv.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        chatBody.appendChild(loadingDiv);
+        chatBody.scrollTop = chatBody.scrollHeight;
+        return loadingDiv;
+    }
+
+    function displayBotMessage(msg, loadingDiv = null) {
+        if (loadingDiv) chatBody.removeChild(loadingDiv);
+        const botMsgDiv = document.createElement('div');
+        botMsgDiv.className = 'ai-chat-message bot-message';
+        botMsgDiv.textContent = msg;
+        chatBody.appendChild(botMsgDiv);
+        chatBody.scrollTop = chatBody.scrollHeight;
+    }
+
+    // File attachment
+    function handleFileUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        sendFile(file, file.name);
+        fileInput.value = '';
+    }
+
+    async function sendFile(file, filename) {
+        displayUserMessage(`[File: ${filename}]`);
+        const loadingDiv = displayLoading();
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('filename', filename);
+
+        try {
+            const response = await fetch('../ai_chat_handler.php', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+            displayBotMessage(data.response || data.error || "File upload failed.", loadingDiv);
+        } catch (error) {
+            displayBotMessage("Failed to send file. Please try again.", loadingDiv);
+        }
     }
 });
 </script>
+
 </body>
 </html>

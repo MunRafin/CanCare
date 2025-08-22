@@ -30,7 +30,7 @@ $page_file = "doctor_" . $page . ".php";
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>PersoCare | Doctor Panel</title>
+  <title>CanCare | Doctor Panel</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
   <style>
@@ -554,7 +554,7 @@ $page_file = "doctor_" . $page . ".php";
         <div class="brand-icon">
           <i class="fas fa-stethoscope"></i>
         </div>
-        <div class="brand-text">PersoCare</div>
+        <div class="brand-text">CanCare</div>
       </div>
       
       <div class="profile-section">

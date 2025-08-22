@@ -22,6 +22,7 @@ if (empty($user_message)) {
     exit;
 }
 
+
 // 1. Fetch user-specific data based on their role
 $context_data = '';
 try {
